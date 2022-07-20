@@ -13,7 +13,7 @@
                     Login
                   </div>
                   <hr class="mt-4">
-                  <h5 class="text-muted">Iniciar sesión en su cuenta</h5>
+                  <h5 class="text-muted">Iniciar Sesión</h5>
                   <b-input-group>
                     <template #prepend>
                       <b-input-group-text><CIcon name="cil-user"/></b-input-group-text>
@@ -57,6 +57,7 @@
           id: null, 
           usuario: null, 
           clave: null,
+          id_rol: null,
           id_entorno: null,
           estado: null,
           vigencia: null
@@ -80,18 +81,38 @@
             } else {
               if (this.datosUsuario.estado == 1) {
                 if (this.clave == this.datosUsuario.clave) {
-                  if (this.datosUsuario.vigencia != null) {
-                    if (this.datosUsuario.id_entorno == 1) {
+                  if (this.datosUsuario.id_entorno == 1) {
+                    if (this.datosUsuario.id_rol == 1 || this.datosUsuario.id_rol == 2) {
+                      this.trazabilidadSesion()
                       let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                       location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
-                    } else if (this.datosUsuario.id_entorno == 2) {
+                    } else {
+                      let restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                      if (restaVigencia < 0) {
+                        this.trazabilidadSesion()
+                        let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                        location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                      }
+                    }
+                  } else if (this.datosUsuario.id_entorno == 2) {
+                    if (this.datosUsuario.id_rol == 5) {
+                      this.trazabilidadSesion()
                       let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                       location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
                     } else {
-                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El entorno del usuario no esta autorizado para iniciar sesión.')
+                      let restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                      if (restaVigencia < 0) {
+                        this.trazabilidadSesion()
+                        let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                        location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                      }
                     }
                   } else {
-                    this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de de acceso ha caducado.')
+                    this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El entorno del usuario no esta autorizado para iniciar sesión.')
                   }
                 } else {
                   this.clave = ''
@@ -113,6 +134,19 @@
           } else {
             this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'Algo salio mal y no se pudo realizar: Consulta Usuario Login. Intente más tarde. ' + err)
           }
+        })
+      },
+      async trazabilidadSesion() {
+        let traza = { idUsuario: this.datosUsuario.id, ip: null}
+        await axios
+        .post(CONFIG.ROOT_PATH + 'login/trazabilidad', JSON.stringify(traza), { headers: {"Content-Type": "application/json; charset=utf-8" }})
+        .then(response => {
+          if (response.data.error){
+            this.mensajeEmergente('danger',CONFIG.TITULO_MSG,response.data.mensaje + ' - Trazabilidad Sesión del Usuario')
+          }
+        })
+        .catch(err => {
+          this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'Algo salio mal y no se pudo realizar: Trazabilidad Sesión del Usuario. Intente más tarde. ' + err)
         })
       },
       restaurarClave() {
