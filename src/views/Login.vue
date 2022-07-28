@@ -28,7 +28,7 @@
                     <b-form-input type="password" v-model="clave" placeholder="Contraseña" @change="activarClave" ref="clave"></b-form-input>
                   </b-input-group>
                   <span class="text-left text-danger">{{msjClave}}</span>
-                  <b-button type="submit" class="btn mb-2 mt-4 btn-block" variant="info">Iniciar Sesión</b-button>
+                  <b-button type="submit" class="btn mb-2 mt-4 btn-block" variant="primary">Iniciar Sesión</b-button>
                   <b-button class="float-right text-info mt-3" variant="link" @click="restaurarClave"><small><em>Recuperar mi contraseña</em></small></b-button>
                 </b-form>
               </CCardBody>
@@ -84,13 +84,13 @@
                   if (this.datosUsuario.id_entorno == 1) {
                     if (this.datosUsuario.id_rol == 1 || this.datosUsuario.id_rol == 2) {
                       this.trazabilidadSesion()
-                      let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                       location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
                     } else {
                       let restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
                       if (restaVigencia < 0) {
                         this.trazabilidadSesion()
-                        let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                        let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                         location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
                       } else {
                         this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
@@ -99,13 +99,13 @@
                   } else if (this.datosUsuario.id_entorno == 2) {
                     if (this.datosUsuario.id_rol == 5) {
                       this.trazabilidadSesion()
-                      let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                       location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
                     } else {
                       let restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
                       if (restaVigencia < 0) {
                         this.trazabilidadSesion()
-                        let token = jwt.sign({id: this.datosUsuario.id}, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                        let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                         location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
                       } else {
                         this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
