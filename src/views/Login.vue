@@ -61,7 +61,8 @@
           id_entorno: null,
           estado: null,
           vigencia: null
-        }
+        },
+        restaVigencia: -1
       }
     },
     methods: {
@@ -82,21 +83,18 @@
               if (this.datosUsuario.estado == 1) {
                 if (this.clave == this.datosUsuario.clave) {
                   if (this.datosUsuario.id_entorno == 1) {
-                    if (this.datosUsuario.id_rol == 1 || this.datosUsuario.id_rol == 2) {
+                    this.restaVigencia = -1
+                    if (this.datosUsuario.id_rol > 2) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
                       this.trazabilidadSesion()
                       let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
                       location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
                     } else {
-                      let restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
-                      if (restaVigencia < 0) {
-                        this.trazabilidadSesion()
-                        let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
-                        location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
-                      } else {
-                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
-                      }
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
                     }
-                  } else if (this.datosUsuario.id_entorno == 2) {
+                  } else if (this.datosUsuario.id_entorno == 2) { // FALTA CORREGIR INGRESO DE COLEGIO
                     if (this.datosUsuario.id_rol == 5) {
                       this.trazabilidadSesion()
                       let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
