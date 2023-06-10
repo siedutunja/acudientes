@@ -1,7 +1,7 @@
 {
   "name": "login",
-  "version": "1.1.5",
-  "description": "sieduTunja",
+  "version": "1.1.1",
+  "description": "loginacademico",
   "author": {
     "name": "Carlos Gerardo Galeano Flórez",
     "url": "https://galeanoti.com",
@@ -19,7 +19,7 @@
     "url": "https://github.com/siedutunja/login"
   },
   "homepage": "http://siedutunja.gov.co",
-  "copyright": "Copyright 2022 GaleanoTI S.A.S.",
+  "copyright": "Copyright 2023 GaleanoTI S.A.S.",
   "license": "MIT",
   "scripts": {
     "serve": "vue-cli-service serve",
