@@ -1,45 +1,38 @@
 <template>
   <div class="flex-row align-items-center pt-5">
     <CContainer>
-      <CRow class="justify-content-center" v-if="sinToken==false">
+      <CRow class="justify-content-center">
         <CCol md="4">
           <CCardGroup>
             <CCard class="p-4">
               <CCardBody>
                 <b-form @submit.stop.prevent="validarCampos">
-                  <div class="text-center"><img :src="this.escudoColegio" height="60" class="mr-2"/></div>
-                  <div class="small text-muted text-medium-emphasis text-center">{{ this.categoriaColegio }}</div>
-                  <div class="small text-muted text-medium-emphasis text-center">{{ this.nombreColegio }}</div>
-                  <div class="small text-muted text-medium-emphasis text-center">Año Lectivo: {{ this.aLectivoColegio }}</div>
+                  <img src="escudo-tunja.png" height="45" class="float-left mr-2"/>
+                  <h1>sieduTunja</h1>
+                  <div class="small text-muted text-medium-emphasis float-right">
+                    Login
+                  </div>
                   <hr class="mt-4">
                   <h5 class="text-muted">Iniciar Sesión</h5>
                   <b-input-group>
-                    <template #prepend>
-                      <b-input-group-text><CIcon name="cil-list"/></b-input-group-text>
-                    </template>
-                    <b-form-select v-model="idTipoUsuario" :options="tiposUsuarios" @change="activarCampos"></b-form-select>
-                  </b-input-group>
-                  <b-input-group class="mt-3">
+                    
                     <template #prepend>
                       <b-input-group-text><CIcon name="cil-user"/></b-input-group-text>
                     </template>
-                    <b-form-input type="text" v-model.trim="usuario" placeholder="Usuario" @change="activarUsuario" ref="usuario" :disabled="campoDesactivado"></b-form-input>
+                    <b-form-input type="text" v-model="usuario" placeholder="Usuario" @change="activarUsuario" ref="usuario"></b-form-input>
                   </b-input-group>
                   <span class="text-left text-danger">{{msjUsuario}}</span>
                   <b-input-group class="mt-3">
                     <template #prepend>
                       <b-input-group-text><CIcon name="cil-lock-locked"/></b-input-group-text>
                     </template>
-                    <b-form-input type="password" v-model.trim="clave" placeholder="Contraseña" @change="activarClave" ref="clave" :disabled="campoDesactivado"></b-form-input>
+                    <b-form-input type="password" v-model="clave" placeholder="Contraseña" @change="activarClave" ref="clave"></b-form-input>
                   </b-input-group>
                   <span class="text-left text-danger">{{msjClave}}</span>
                   <b-button type="submit" class="btn mb-2 mt-4 btn-block" variant="primary" :disabled="campoDesactivado">Iniciar Sesión</b-button>
                   <b-button class="float-right text-info mt-3" variant="link" @click="restaurarClave"><small><em>Recuperar mi contraseña</em></small></b-button>
                 </b-form>
               </CCardBody>
-              <CCardFooter>
-                <div class="text-center"><img src="logo_n.png" height="25" class="mr-2"/></div>
-              </CCardFooter>
             </CCard>
           </CCardGroup>
         </CCol>
@@ -57,85 +50,77 @@
     name: 'Login',
     data () {
       return {
-        idTipoUsuario: 0,
         usuario: '',
         clave: '',
         msjUsuario: '',
         msjClave: '',
-        idColegio: null,
-        nombreColegio: null,
-        categoriaColegio: null,
-        bdColegio: null,
-        escudoColegio: null,
-        aLectivoColegio: 0,
-        tiposUsuarios: [
-          { value: 0, text: 'Tipo Usuario'},
-          { value: 1, text: 'Estudiante'},
-          //{ value: 2, text: 'Docente'},
-          //{ value: 3, text: 'Administrativo'}
-        ],
-        campoDesactivado: true,
-        sinToken: false,
         datosUsuario: { 
-          idMatricula: null,
-          idEstudiante: null,
+          id: null, 
           usuario: null,
           clave: null,
-          aLectivo: null,
-          idColegio: null,
-          bdColegio: null
-        }
+          id_rol: null,
+          id_entorno: null,
+          estado: null,
+          vigencia: null
+        },
+        restaVigencia: -1
       }
     },
     methods: {
-      validarTipoUsuario() {
-        if (this.idTipoUsuario == 1) {
-          this.validarSesionEstudiante()
-        } else if (this.idTipoUsuario == 2) {
-          this.mensajeEmergente('success',CONFIG.TITULO_MSG,'El Tipo de Usuario seleccionado es Docente.')
-        } else if (this.idTipoUsuario == 3) {
-          this.mensajeEmergente('success',CONFIG.TITULO_MSG,'El Tipo de Usuario seleccionado es Administrativo.')
-        } else {
-          this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'Seleccione el Tipo de Usuario con el que va a iniciar sesión.')
-        }
-      },
-      async validarSesionEstudiante() {
+      async validarSesion() {
         await axios
-        .get(CONFIG.ROOT_PATH + 'login/estudiante', { params: { bdColegio: this.bdColegio, aLectivo: this.aLectivoColegio, idMatricula: this.usuario }})
+        .get(CONFIG.ROOT_PATH + 'login', { params: { usuario: this.usuario }})
         .then(response => {
           if (response.data.error){
             this.mensajeEmergente('danger',CONFIG.TITULO_MSG,response.data.mensaje + ' - Consulta Usuario Login')
           } else{
-            if (response.data.datos != 0) {
-              if (response.data.datos.id_estado == 1) {
-                if (response.data.datos.clave == this.clave) {
-                  this.datosUsuario.idMatricula = response.data.datos.id_matricula
-                  this.datosUsuario.idEstudiante = response.data.datos.id_estudiante
-                  this.datosUsuario.usuario = this.usuario
-                  this.datosUsuario.clave = this.clave
-                  this.datosUsuario.aLectivo = this.aLectivoColegio
-                  this.datosUsuario.idColegio = this.idColegio
-                  this.datosUsuario.bdColegio = this.bdColegio
-                  console.log(JSON.stringify(this.datosUsuario))
-                  //this.trazabilidadSesion()
-                  let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
-                  location.replace(CONFIG.ROOT_MODULO_ESTUDIANTE + '/?token=' + token)
+            this.datosUsuario = response.data.datos
+            if (this.datosUsuario == 0) {
+              this.usuario = ''
+              this.clave = ''
+              this.$refs.usuario.focus()
+              this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El Usuario no se encuentra registrado, verifique e intente nuevamente.')
+            } else {
+              if (this.datosUsuario.estado == 1) {
+                if (this.clave == this.datosUsuario.clave) {
+                  if (this.datosUsuario.id_entorno == 1) {
+                    this.restaVigencia = -1
+                    if (this.datosUsuario.id_rol > 2) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
+                      this.trazabilidadSesion()
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
+                    } else {
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                    }
+                  } else if (this.datosUsuario.id_entorno == 2) { 
+                    this.restaVigencia = -1
+                    if (this.datosUsuario.id_rol > 5) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
+                      this.trazabilidadSesion()
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
+                    } else {
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                    }
+                  } else {
+                    this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El entorno del usuario no esta autorizado para iniciar sesión.')
+                  }
                 } else {
                   this.clave = ''
                   this.$refs.clave.focus()
-                  this.mensajeEmergente('warning',CONFIG.TITULO_MSG,'¡Ups!. La contraseña esta errada., verifique e intente nuevamente.')
+                  this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La contraseña está errada, verifique e intente nuevamente.')
                 }
               } else {
                 this.usuario = ''
                 this.clave = ''
                 this.$refs.usuario.focus()
-                this.mensajeEmergente('info',CONFIG.TITULO_MSG,'¡Lo sentimos!. Actualmente el Estudiante no se encuentra activo en la Institución Educativa, verifique e intente nuevamente.')
+                this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La cuenta del usuario está inactiva.')
               }
-            } else {
-              this.usuario = ''
-              this.clave = ''
-              this.$refs.usuario.focus()
-              this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Uy!. El Estudiante no se encuentra registrado en la Institución Educativa, verifique e intente nuevamente.')
             }
           }
         })
@@ -169,9 +154,6 @@
       activarClave() {
         this.msjClave = ''
       },
-      activarCampos() {
-        this.campoDesactivado = this.idTipoUsuario == 0 ? true : false
-      },
       validarCampos() {
         if (this.usuario == '') {
           this.msjUsuario = 'Digite el usuario'
@@ -180,77 +162,15 @@
           this.msjClave = 'Digite la contraseña'
           this.$refs.clave.focus()
         } else {
-          this.validarTipoUsuario()
+          this.validarSesion()
         }
-      },
-      async iniciarVista(){
-        if ( this.idColegio === null ) {
-          let valores = window.location.search
-          let urlParams = new URLSearchParams(valores)
-          this.idColegio = urlParams.get('id')
-          sessionStorage.setItem('token', this.idColegio)
-          window.history.replaceState({},'','/login/')
-        }
-        await axios
-        .get(CONFIG.ROOT_PATH + 'colegios/infobasica', { params: { idColegio: this.idColegio }})
-        .then(response => {
-          if (response.data.error){
-            this.mensajeEmergente('danger',CONFIG.TITULO_MSG,response.data.mensaje + ' - Información básica del Colegio')
-          } else{
-            if (response.data.datos != 0) {
-              this.nombreColegio = response.data.datos.nombre
-              this.categoriaColegio = response.data.datos.categoria
-              this.bdColegio = response.data.datos.bd
-              this.escudoColegio = CONFIG.ROOT_ESCUDOS + 'es' + this.idColegio + '.jpg'
-              this.consultaConfiguraciones()
-            } else {
-              this.sinToken = true
-              this.mensajeFinal()
-            }
-          }
-        })
-        .catch(err => {
-          this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'Algo salio mal y no se pudo realizar: Información básica del Colegio. Intente más tarde.' + err)
-        })
-      },
-      async consultaConfiguraciones() {
-        await axios
-        .get(CONFIG.ROOT_PATH + 'configuraciones/alectivo', { params: { bdColegio: this.bdColegio }})
-        .then(response => {
-          if (response.data.error){
-            this.mensajeEmergente('danger',CONFIG.TITULO_MSG,response.data.mensaje + ' - Información configuraciones del Colegio')
-          } else{
-            if (response.data.datos != 0) {
-              this.aLectivoColegio = response.data.datos.a_lectivo
-            }
-          }
-        })
-        .catch(err => {
-          this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'Algo salio mal y no se pudo realizar: Información configuraciones del Colegio. Intente más tarde.' + err)
-        })
-      },
-      mensajeFinal() {
-        this.boxTwo = ''
-        this.$bvModal.msgBoxOk('Lo sentimos. El token de ingreso no es válido. Verifique el Link que le suministraron para ingresar a la plataforma y vueva a intentarlo.', {
-          title: CONFIG.TITULO_MSG,
-          size: 'sm',
-          buttonSize: 'sm',
-          okVariant: 'primary',
-          headerClass: 'p-2 border-bottom-0',
-          footerClass: 'p-2 border-top-0',
-          centered: true
-        })
-          .then(value => {
-            this.sinToken = value //true
-          })
       },
       mensajeEmergente(variante, titulo, contenido) {
         this.$bvToast.toast(contenido, { title: titulo, variant: variante, toaster: "b-toaster-top-center", solid: true, autoHideDelay: 4000, appendToast: false })
       }
     },
     beforeMount() {
-      this.idColegio = sessionStorage.getItem('token')
-      this.iniciarVista()
+      sessionStorage.clear()
     }
   }
 </script>
