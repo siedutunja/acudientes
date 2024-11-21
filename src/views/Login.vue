@@ -29,7 +29,7 @@
                     <b-form-input type="password" v-model="clave" placeholder="Contraseña" @change="activarClave" ref="clave"></b-form-input>
                   </b-input-group>
                   <span class="text-left text-danger">{{msjClave}}</span>
-                  <b-button type="submit" class="btn mb-2 mt-4 btn-block" variant="primary" :disabled="campoDesactivado">Iniciar Sesión</b-button>
+                  <b-button type="submit" class="btn mb-2 mt-4 btn-block" variant="primary">Iniciar Sesión</b-button>
                   <b-button class="float-right text-info mt-3" variant="link" @click="restaurarClave"><small><em>Recuperar mi contraseña</em></small></b-button>
                 </b-form>
               </CCardBody>
@@ -83,27 +83,93 @@
             } else {
               if (this.datosUsuario.estado == 1) {
                 if (this.clave == this.datosUsuario.clave) {
-                  if (this.datosUsuario.id_entorno == 1) {
+                  if (this.datosUsuario.id_entorno == 1) { //MÓDULO ADMINISTRATIVO
                     this.restaVigencia = -1
-                    if (this.datosUsuario.id_rol > 2) {
+                    let validaFechaRol = CONFIG.VALIDA_FECHA_ROLES_ADMON.find((element) => element == this.datosUsuario.id_rol);
+                    if (validaFechaRol) {
                       this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
                     }
                     if (this.restaVigencia < 0) {
                       this.trazabilidadSesion()
                       let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
-                      location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
+                      let validarRoles = CONFIG.ROLES_MODULO_ADMON.find((element) => element == this.datosUsuario.id_rol);
+                      if (validarRoles) {
+                        location.replace(CONFIG.ROOT_MODULO_ADMON + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El rol no corresponde al entorno del usuario.')
+                      }
                     } else {
                       this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
                     }
-                  } else if (this.datosUsuario.id_entorno == 2) { 
+                  } else if (this.datosUsuario.id_entorno == 2) { //MÓDULO COLEGIO
                     this.restaVigencia = -1
-                    if (this.datosUsuario.id_rol > 5) {
+                    let validaFechaRol = CONFIG.VALIDA_FECHA_ROLES_COLEGIO.find((element) => element == this.datosUsuario.id_rol);
+                    if (validaFechaRol) {
                       this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
                     }
                     if (this.restaVigencia < 0) {
                       this.trazabilidadSesion()
                       let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
-                      location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
+                      let validarRoles = CONFIG.ROLES_MODULO_COLEGIO.find((element) => element == this.datosUsuario.id_rol);
+                      if (validarRoles) {
+                        location.replace(CONFIG.ROOT_MODULO_COLEGIO + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El rol no corresponde al entorno del usuario.')
+                      }
+                    } else {
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                    }
+                  } else if (this.datosUsuario.id_entorno == 3) { //MÓDULO ACADÉMICO
+                    this.restaVigencia = -1
+                    let validaFechaRol = CONFIG.VALIDA_FECHA_ROLES_ACADEMICO.find((element) => element == this.datosUsuario.id_rol);
+                    if (validaFechaRol) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
+                      //this.trazabilidadSesion()
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      let validarRoles = CONFIG.ROLES_MODULO_ACADEMICO.find((element) => element == this.datosUsuario.id_rol);
+                      if (validarRoles) {
+                        location.replace(CONFIG.ROOT_MODULO_ACADEMICO + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El rol no corresponde al entorno del usuario.')
+                      }
+                    } else {
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                    }
+                  } else if (this.datosUsuario.id_entorno == 4) { //MÓDULO DOCENTE
+                    this.restaVigencia = -1
+                    let validaFechaRol = CONFIG.VALIDA_FECHA_ROLES_DOCENTE.find((element) => element == this.datosUsuario.id_rol);
+                    if (validaFechaRol) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
+                      this.trazabilidadSesion()
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      let validarRoles = CONFIG.ROLES_MODULO_DOCENTE.find((element) => element == this.datosUsuario.id_rol);
+                      if (validarRoles) {
+                        location.replace(CONFIG.ROOT_MODULO_DOCENTE + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El rol no corresponde al entorno del usuario.')
+                      }
+                    } else {
+                      this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
+                    }
+                  } else if (this.datosUsuario.id_entorno == 5) { //MÓDULO ESTUDIANTE
+                    this.restaVigencia = -1
+                    let validaFechaRol = CONFIG.VALIDA_FECHA_ROLES_ESTUDIANTE.find((element) => element == this.datosUsuario.id_rol);
+                    if (validaFechaRol) {
+                      this.restaVigencia = this.datosUsuario.fechaA - (this.datosUsuario.fechaV + 86400000)
+                    }
+                    if (this.restaVigencia < 0) {
+                      this.trazabilidadSesion()
+                      let token = jwt.sign(this.datosUsuario, CONFIG.SECRET_KEY, {expiresIn: '14400s'})
+                      let validarRoles = CONFIG.ROLES_MODULO_ESTUDIANTE.find((element) => element == this.datosUsuario.id_rol);
+                      if (validarRoles) {
+                        location.replace(CONFIG.ROOT_MODULO_ESTUDIANTE + '/?token=' + token)
+                      } else {
+                        this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. El rol no corresponde al entorno del usuario.')
+                      }
                     } else {
                       this.mensajeEmergente('danger',CONFIG.TITULO_MSG,'¡Lo sentimos!. La fecha válida de acceso ha caducado.')
                     }
@@ -171,6 +237,7 @@
     },
     beforeMount() {
       sessionStorage.clear()
+
     }
   }
 </script>
