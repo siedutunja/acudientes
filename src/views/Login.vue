@@ -10,12 +10,11 @@
                   <img src="escudo-tunja.png" height="45" class="float-left mr-2"/>
                   <h1>sieduTunja</h1>
                   <div class="small text-muted text-medium-emphasis float-right">
-                    Login
+                    Login {{version}}
                   </div>
                   <hr class="mt-4">
                   <h5 class="text-muted">Iniciar Sesión</h5>
                   <b-input-group>
-                    
                     <template #prepend>
                       <b-input-group-text><CIcon name="cil-user"/></b-input-group-text>
                     </template>
@@ -42,6 +41,7 @@
 </template>
 
 <script>
+  import { version } from '@/../package.json'
   import axios from "axios"
   import * as CONFIG from '@/assets/config.js'
   import jwt from 'jsonwebtoken'
@@ -63,7 +63,8 @@
           estado: null,
           vigencia: null
         },
-        restaVigencia: -1
+        restaVigencia: -1,
+        version: version
       }
     },
     methods: {
