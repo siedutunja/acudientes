@@ -1,1 +1,11 @@
 // Here you can add other styles
+
+// CoreUI pone overflow:hidden en .c-body lo que corta el contenido al hacer scroll.
+// Se sobreescribe para permitir scroll vertical normal.
+.c-body {
+  overflow-y: auto !important;
+}
+
+.c-main {
+  overflow: visible !important;
+}

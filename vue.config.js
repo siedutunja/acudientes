@@ -1,8 +1,11 @@
 module.exports = {
   lintOnSave: false,
   runtimeCompiler: true,
-  publicPath: '/login/',
-  outputDir: 'login',
+  publicPath: '/acudientes/',
+  outputDir: 'acudientes',
+  devServer: {
+    port: 8085
+  },
   configureWebpack: {
     resolve: {
        symlinks: false

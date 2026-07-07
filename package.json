@@ -43,6 +43,7 @@
     "idle-vue": "^2.0.5",
     "jsonwebtoken": "^8.5.1",
     "vue": "^2.6.12",
+    "vue-good-table": "^2.21.11",
     "vue-router": "^3.5.1",
     "vue-uuid": "^2.0.2",
     "vuelidate": "^0.7.6",
