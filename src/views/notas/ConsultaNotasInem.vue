@@ -167,10 +167,12 @@
                     <div class="crit-label">{{ config.nombreC3 }}</div>
                     <span :class="['badge', scoreClass(row.defC3, row.tipoAsignatura)]">{{ asScore(row.defC3) }}</span>
                   </div>
-                  <div v-if="row.esAcumulado" v-for="p in periodosRangoAcumulado" :key="row.__key + '-p' + p" class="crit-box">
-                    <div class="crit-label">P{{ p }}</div>
-                    <span :class="['badge', notaPeriodoAcumuladoClass(row, p)]">{{ notaPeriodoAcumuladoDisplay(row, p) }}</span>
-                  </div>
+                  <template v-if="row && row.esAcumulado">
+                    <div v-for="p in periodosRangoAcumulado" :key="row.__key + '-p' + p" class="crit-box">
+                      <div class="crit-label">P{{ p }}</div>
+                      <span :class="['badge', notaPeriodoAcumuladoClass(row, p)]">{{ notaPeriodoAcumuladoDisplay(row, p) }}</span>
+                    </div>
+                  </template>
                   <div class="crit-box crit-main">
                     <div class="crit-label">{{ esCualitativo123 ? 'Nota final' : 'Definitiva' }}</div>
                     <span v-if="esCualitativo123" :class="['badge', 'badge-lg', conceptoClass(nota123Concepto(row))]">{{ nota123Display(row) }}</span>
