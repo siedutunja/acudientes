@@ -1,6 +1,6 @@
 {
   "name": "login",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "sieduTunja",
   "author": {
     "name": "Carlos Gerardo Galeano Flórez",
@@ -16,7 +16,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/siedutunja/login"
+    "url": "https://github.com/siedutunja/acudientes"
   },
   "homepage": "http://siedutunja.gov.co",
   "copyright": "Copyright 2023 GaleanoTI S.A.S.",
