@@ -35,7 +35,15 @@
             <label>Periodo</label>
             <select v-model="filters.periodo">
               <option value="">Todos</option>
+              <option :value="OPCION_ACUMULADO">Acumulado</option>
               <option v-for="p in periodOptions" :key="p" :value="String(p)">{{ p }}</option>
+            </select>
+          </div>
+
+          <div class="field" v-if="filters.periodo === OPCION_ACUMULADO">
+            <label>Rango acumulado</label>
+            <select v-model="filters.rangoAcumulado">
+              <option v-for="r in rangoAcumuladoOptions" :key="r.value" :value="r.value">{{ r.label }}</option>
             </select>
           </div>
 
@@ -68,6 +76,11 @@
               <option value="asc">Menor a mayor</option>
             </select>
           </div>
+        </div>
+
+        <div class="filters-footer">
+          {{ filteredRows.length }} asignatura(s)
+          <span v-if="promedioGeneralActual !== null" class="ml-2">• Promedio final general actual: <strong>{{ asScore(promedioGeneralActual) }}</strong></span>
         </div>
       </article>
 
@@ -119,6 +132,8 @@ import { VueGoodTable } from 'vue-good-table'
 import 'vue-good-table/dist/vue-good-table.css'
 import * as CONFIG from '@/assets/config.js'
 
+const OPCION_ACUMULADO = 'ACUMULADO'
+
 export default {
   name: 'HistoricoNotasEstudiante',
   components: {
@@ -130,8 +145,10 @@ export default {
       rows: [],
       studentSummary: {},
       config: null,
+      OPCION_ACUMULADO,
       filters: {
         periodo: '',
+        rangoAcumulado: '1-4',
         area: '',
         asignatura: '',
         search: '',
@@ -179,6 +196,61 @@ export default {
     periodOptions () {
       return [...new Set(this.rows.map(r => r.periodo).filter(Boolean))].sort((a, b) => Number(a) - Number(b))
     },
+    rangoAcumuladoOptions () {
+      const maxPeriodo = Math.max(...this.periodOptions.map(Number), 0)
+      const opciones = []
+      for (let i = 2; i <= maxPeriodo; i++) {
+        opciones.push({ value: `1-${i}`, label: `1 a ${i}` })
+      }
+      return opciones.length ? opciones : [{ value: '1-4', label: '1 a 4' }]
+    },
+    periodosRangoAcumulado () {
+      const rango = String(this.filters.rangoAcumulado || '1-4')
+      const partes = rango.split('-')
+      const ini = Number(partes[0]) || 1
+      const fin = Number(partes[1]) || 4
+      const periodos = []
+      for (let p = ini; p <= fin; p++) periodos.push(p)
+      return periodos
+    },
+    rowsAcumulados () {
+      const porAsignatura = {}
+      this.rows.forEach((r) => {
+        const key = String(r.idAsignaturaCurso || (r.nemoArea + '-' + r.nemo + '-' + r.nombreAsignatura))
+        if (!porAsignatura[key]) porAsignatura[key] = []
+        porAsignatura[key].push(r)
+      })
+
+      return Object.keys(porAsignatura).map((key) => {
+        const registros = porAsignatura[key]
+        const base = [...registros].sort((a, b) => (Number(b.periodo) || 0) - (Number(a.periodo) || 0))[0] || {}
+        const definitiva = this.calcularAcumuladoPorMateria(registros)
+        return {
+          ...base,
+          __key: key + '-acumulado',
+          periodo: 'A',
+          defC1: null,
+          defC2: null,
+          defC3: null,
+          recuperacion: 0,
+          definitivacompor: null,
+          ausJ: 0,
+          ausS: 0,
+          inclusion: '-',
+          observaciones: '-',
+          concepto: this.conceptoDesdeDefinitiva(definitiva),
+          definitiva,
+          esAcumulado: true
+        }
+      }).sort((a, b) => {
+        const ao = (a.nombreArea || a.nemoArea || '').toString()
+        const bo = (b.nombreArea || b.nemoArea || '').toString()
+        if (ao !== bo) return ao.localeCompare(bo)
+        const asA = (a.nombreAsignatura || a.nemo || '').toString()
+        const asB = (b.nombreAsignatura || b.nemo || '').toString()
+        return asA.localeCompare(asB)
+      })
+    },
     areaOptions () {
       return [...new Set(this.rows.map(r => r.nombreArea || r.nemoArea).filter(Boolean))].sort()
     },
@@ -186,9 +258,10 @@ export default {
       return [...new Set(this.rows.map(r => r.nombreAsignatura || r.nemo).filter(Boolean))].sort()
     },
     filteredRows () {
+      const fuente = this.filters.periodo === this.OPCION_ACUMULADO ? this.rowsAcumulados : this.rows
       const txt = (this.filters.search || '').toLowerCase()
-      let list = this.rows.filter((r) => {
-        const okPeriodo = !this.filters.periodo || String(r.periodo || '') === String(this.filters.periodo)
+      let list = fuente.filter((r) => {
+        const okPeriodo = !this.filters.periodo || this.filters.periodo === this.OPCION_ACUMULADO || String(r.periodo || '') === String(this.filters.periodo)
         const areaVal = r.nombreArea || r.nemoArea || ''
         const asigVal = r.nombreAsignatura || r.nemo || ''
         const okArea = !this.filters.area || areaVal === this.filters.area
@@ -214,9 +287,47 @@ export default {
       }
 
       return list
+    },
+    promedioGeneralActual () {
+      const base = this.filters.periodo === this.OPCION_ACUMULADO ? this.rowsAcumulados : this.filteredRows
+      const notas = base
+        .map(r => Number(r.definitiva))
+        .filter(n => Number.isFinite(n) && n > 0)
+      if (!notas.length) return null
+      const suma = notas.reduce((acc, n) => acc + n, 0)
+      return suma / notas.length
     }
   },
   methods: {
+    notaFinalPeriodo (row) {
+      const def = Number(row.definitiva)
+      const rec = Number(row.recuperacion)
+      const defVal = Number.isFinite(def) ? def : 0
+      const recVal = Number.isFinite(rec) ? rec : 0
+      return recVal > defVal ? recVal : defVal
+    },
+    calcularAcumuladoPorMateria (registros) {
+      const periodos = this.periodosRangoAcumulado
+      if (!periodos.length) return 0
+
+      const notasPorPeriodo = {}
+      registros.forEach((r) => {
+        const p = Number(r.periodo)
+        if (!periodos.includes(p)) return
+        notasPorPeriodo[p] = this.notaFinalPeriodo(r)
+      })
+
+      const suma = periodos.reduce((acc, p) => acc + (Number(notasPorPeriodo[p]) || 0), 0)
+      return suma / periodos.length
+    },
+    conceptoDesdeDefinitiva (nota) {
+      const n = Number(nota)
+      if (!Number.isFinite(n) || n <= 0) return '-'
+      if (n < 3.0) return 'BAJO'
+      if (n < 4.0) return 'BASICO'
+      if (n < 4.5) return 'ALTO'
+      return 'SUPERIOR'
+    },
     asScore (v) {
       if (v === null || v === undefined || v === '') return '-'
       const n = Number(v)
@@ -289,6 +400,7 @@ export default {
         rows.push({
           __key: `${r.idAsignaturaCurso || 'sin-id'}-${r.periodo || ''}-${idx}`,
           periodo: r.periodo,
+          idAsignaturaCurso: r.idAsignaturaCurso,
           nemoArea: r.nemoArea || '',
           nombreArea: r.nombreArea || '',
           nemo: r.nemo || '',
@@ -306,7 +418,8 @@ export default {
           observaciones: r.observaciones || '-',
           inclusion: r.inclusion,
           fecha_recupera: r.fecha_recupera,
-          tipoAsignatura: r.tipoAsignatura || 1
+          tipoAsignatura: r.tipoAsignatura || 1,
+          esAcumulado: false
         })
       })
 
@@ -344,6 +457,11 @@ export default {
 
         const rowsApi = notasRes.data && !notasRes.data.error && notasRes.data.datos !== 0 ? notasRes.data.datos : []
         this.rows = this.adaptarFilas(rowsApi)
+
+        const maxPeriodo = Math.max(...this.periodOptions.map(Number), 0)
+        if (maxPeriodo >= 4) this.filters.rangoAcumulado = '1-4'
+        else if (maxPeriodo >= 3) this.filters.rangoAcumulado = '1-3'
+        else if (maxPeriodo >= 2) this.filters.rangoAcumulado = '1-2'
       } catch (err) {
         this.$bvToast.toast('Error consultando histórico de notas del estudiante.', {
           title: CONFIG.TITULO_MSG,
@@ -404,6 +522,7 @@ export default {
 .filters-card { padding: 1rem; }
 .filters-card h3 { margin: 0 0 0.9rem; color: #1e4f8f; font-size: 1.05rem; }
 .filters-grid { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 0.7rem; }
+.filters-footer { text-align: right; font-size: .78rem; color: #617486; margin-top: .5rem; }
 .field label { display: block; font-size: 0.76rem; color: #6d7d8e; margin-bottom: 0.2rem; }
 .field select, .field input { width: 100%; border: 1px solid #d5dfeb; border-radius: 8px; padding: 0.5rem 0.65rem; }
 .search-field { grid-column: span 2; }

@@ -38,7 +38,10 @@
       <div class="card-filtros">
         <div class="filtros-header">
           <h3>Observador académico</h3>
-          <span class="total-badge">{{ observaciones.length }} registro{{ observaciones.length !== 1 ? 's' : '' }}</span>
+          <div class="badges-right">
+            <span v-if="nuevasObservaciones > 0" class="nuevas-badge">Nuevas: {{ nuevasObservacionesLabel }}</span>
+            <span class="total-badge">{{ observaciones.length }} registro{{ observaciones.length !== 1 ? 's' : '' }}</span>
+          </div>
         </div>
 
         <div class="filtros-grid">
@@ -113,7 +116,7 @@
                 <tr
                   v-for="(obs, i) in pagina"
                   :key="obs.id || i"
-                  :class="{ 'fila-par': i % 2 === 0 }"
+                  :class="{ 'fila-par': i % 2 === 0, 'fila-nueva': Number(obs.vista) !== 1 }"
                 >
                   <td class="td-fecha">{{ fmtFecha(obs.fecha_observacion) }}</td>
                   <td>
@@ -132,6 +135,7 @@
                     <span :class="['chip', chipEstado(obs.estadoseguimiento)]">
                       {{ obs.estadoseguimiento || '-' }}
                     </span>
+                    <span v-if="Number(obs.vista) !== 1" class="chip chip-nueva ml-1">Nueva</span>
                   </td>
                   <td>
                     <button class="btn-ver" @click="abrirDetalle(obs)">Ver</button>
@@ -155,7 +159,7 @@
     <div v-if="detalleAbierto" class="overlay" @click.self="cerrarDetalle">
       <div class="drawer">
         <div class="drawer-header">
-          <h4>Detalle de observación</h4>
+          <h4>Detalle de observación <small v-if="nuevasObservaciones > 0" class="drawer-nuevas">({{ nuevasObservacionesLabel }} nuevas)</small></h4>
           <button class="btn-cerrar" @click="cerrarDetalle">✕</button>
         </div>
         <div class="drawer-body" v-if="obsSeleccionada">
@@ -198,9 +202,19 @@
             <label>Situación</label>
             <p>{{ obsSeleccionada.situacion }}</p>
           </div>
-          <div class="drawer-seccion" v-if="obsSeleccionada.descargos">
+          <div class="drawer-seccion">
             <label>Descargos</label>
-            <p>{{ obsSeleccionada.descargos }}</p>
+            <textarea
+              v-model="descargosEditable"
+              class="descargos-input"
+              rows="4"
+              placeholder="Escribe aquí tus descargos como acudiente..."
+            ></textarea>
+            <div class="descargos-actions">
+              <button class="btn-guardar-descargos" :disabled="guardandoDescargos || descargosSinCambios()" @click="guardarDescargos">
+                {{ guardandoDescargos ? 'Guardando...' : 'Guardar descargos' }}
+              </button>
+            </div>
           </div>
           <div class="drawer-seccion" v-if="obsSeleccionada.compromisos">
             <label>Compromisos</label>
@@ -266,7 +280,9 @@ export default {
       porPagina: 10,
       // Detalle
       detalleAbierto: false,
-      obsSeleccionada: null
+      obsSeleccionada: null,
+      descargosEditable: '',
+      guardandoDescargos: false
     }
   },
 
@@ -318,6 +334,14 @@ export default {
 
     totalPaginas () {
       return Math.max(1, Math.ceil(this.filtradas.length / this.porPagina))
+    },
+
+    nuevasObservaciones () {
+      return this.observaciones.filter(o => Number(o.vista) !== 1).length
+    },
+
+    nuevasObservacionesLabel () {
+      return this.nuevasObservaciones > 9 ? '9+' : String(this.nuevasObservaciones)
     },
 
     pagina () {
@@ -378,17 +402,87 @@ export default {
 
     abrirDetalle (obs) {
       this.obsSeleccionada = obs
+      this.descargosEditable = String(obs.descargos || '')
       this.detalleAbierto = true
+      this.marcarVista(obs)
     },
 
     cerrarDetalle () {
       this.detalleAbierto = false
       this.obsSeleccionada = null
+      this.descargosEditable = ''
+      this.guardandoDescargos = false
+    },
+
+    descargosSinCambios () {
+      if (!this.obsSeleccionada) return true
+      return String(this.descargosEditable || '').trim() === String(this.obsSeleccionada.descargos || '').trim()
+    },
+
+    async guardarDescargos () {
+      if (!this.obsSeleccionada || !this.obsSeleccionada.id || this.guardandoDescargos || this.descargosSinCambios()) return
+      this.guardandoDescargos = true
+      try {
+        const payload = {
+          idObservacion: this.obsSeleccionada.id,
+          descargos: this.descargosEditable
+        }
+        const { data } = await axios.put(CONFIG.ROOT_PATH + 'acudientes/observador/descargos', payload, { timeout: 20000 })
+
+        if (data && data.error === false) {
+          const nuevoDescargo = String(this.descargosEditable || '').trim()
+          this.obsSeleccionada = { ...this.obsSeleccionada, descargos: nuevoDescargo }
+          this.observaciones = this.observaciones.map(o => String(o.id) === String(this.obsSeleccionada.id)
+            ? { ...o, descargos: nuevoDescargo }
+            : o)
+
+          this.$bvToast.toast('Descargos actualizados correctamente.', {
+            title: CONFIG.TITULO_MSG,
+            variant: 'success',
+            toaster: 'b-toaster-top-center',
+            solid: true,
+            autoHideDelay: 2200
+          })
+        } else {
+          this.$bvToast.toast((data && data.mensaje) || 'No fue posible guardar los descargos.', {
+            title: CONFIG.TITULO_MSG,
+            variant: 'warning',
+            toaster: 'b-toaster-top-center',
+            solid: true,
+            autoHideDelay: 2800
+          })
+        }
+      } catch (e) {
+        this.$bvToast.toast('Error de conexión al guardar descargos.', {
+          title: CONFIG.TITULO_MSG,
+          variant: 'danger',
+          toaster: 'b-toaster-top-center',
+          solid: true,
+          autoHideDelay: 3000
+        })
+      } finally {
+        this.guardandoDescargos = false
+      }
     },
 
     volver () {
       const idMatricula = this.$route.params.idMatricula || ''
       this.$router.push({ name: 'menu-estudiante', params: { idMatricula } })
+    },
+
+    async marcarVista (obs) {
+      if (!obs || !obs.id || Number(obs.vista) === 1) return
+      try {
+        await axios.put(CONFIG.ROOT_PATH + 'acudientes/observador/marcar-vista', {
+          idObservacion: obs.id
+        })
+        this.observaciones = this.observaciones.map(function (o) {
+          return String(o.id) === String(obs.id) ? { ...o, vista: 1 } : o
+        })
+        this.obsSeleccionada = { ...obs, vista: 1 }
+      } catch (e) {
+        // No bloquea apertura del detalle si falla el marcado
+      }
     },
 
     async cargar (idMatricula, idEstudiante) {
@@ -412,7 +506,9 @@ export default {
 
         if (data && data.error === false && data.datos && data.datos.observador) {
           const obs = data.datos.observador
-          this.observaciones = Array.isArray(obs) ? obs : []
+          this.observaciones = Array.isArray(obs)
+            ? obs.map(function (o) { return { ...o, vista: Number(o.vista) === 1 ? 1 : 0 } })
+            : []
           this.modoHistorico = data.datos.modo_observador === 'historico'
 
           // Completar resumen con datos frescos del API
@@ -608,6 +704,12 @@ export default {
   margin-bottom: 0.75rem;
 }
 
+.badges-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .filtros-header h3 {
   font-size: 1rem;
   font-weight: 700;
@@ -622,6 +724,15 @@ export default {
   padding: 0.15rem 0.65rem;
   font-size: 0.78rem;
   font-weight: 600;
+}
+
+.nuevas-badge {
+  background: #c0392b;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.15rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .filtros-grid {
@@ -741,6 +852,10 @@ export default {
   transition: background 0.12s;
 }
 
+.tabla tbody tr.fila-nueva td {
+  font-weight: 600;
+}
+
 .tabla tbody tr.fila-par { background: #f8fafc; }
 .tabla tbody tr:hover { background: #eaf1fb; }
 
@@ -770,6 +885,7 @@ export default {
 .chip-naranja { background: rgba(230,126,34,0.15); color: #9a3e00; }
 .chip-rojo    { background: rgba(192,57,43,0.14);  color: #8c1c12; }
 .chip-gris    { background: rgba(108,117,125,0.12);color: #4a5568; }
+.chip-nueva   { background: rgba(192,57,43,0.16); color: #8c1c12; }
 
 /* ── Botón ver detalle ── */
 .btn-ver {
@@ -843,6 +959,12 @@ export default {
   font-weight: 700;
 }
 
+.drawer-nuevas {
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.95;
+}
+
 .btn-cerrar {
   border: none;
   background: rgba(255,255,255,0.2);
@@ -907,6 +1029,47 @@ export default {
   border-radius: 8px;
   padding: 0.5rem 0.75rem;
   border-left: 3px solid #1f4e8c;
+}
+
+.descargos-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 90px;
+  border: 1.5px solid #d1dbe8;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: #1a2535;
+  background: #f8fafc;
+  outline: none;
+}
+
+.descargos-input:focus {
+  border-color: #1f4e8c;
+  background: #fff;
+}
+
+.descargos-actions {
+  margin-top: 0.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.btn-guardar-descargos {
+  border: 1.5px solid #1f4e8c;
+  background: #1f4e8c;
+  color: #fff;
+  border-radius: 7px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-guardar-descargos:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ── Responsive ── */

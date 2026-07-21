@@ -39,6 +39,7 @@
       </CCol>
       <CCol cols="12" md="4" class="mb-3">
         <CCard class="h-100 option-card">
+          <span v-if="nuevasObs > 0" class="obs-new-badge">{{ nuevasObsLabel }}</span>
           <CCardBody class="text-center py-4 card-click-body" role="button" tabindex="0" @click="irObservador" @keyup.enter="irObservador">
             <CIcon name="cil-description" height="42" class="mb-3 text-primary"/>
             <h5 class="mb-2">Consultar Observador</h5>
@@ -62,12 +63,21 @@
 </template>
 
 <script>
+import axios from 'axios'
+import * as CONFIG from '@/assets/config.js'
+
 export default {
   name: 'MenuEstudiante',
   data () {
     return {
       estudiante: {},
-      vigencia: ''
+      vigencia: '',
+      nuevasObs: 0
+    }
+  },
+  computed: {
+    nuevasObsLabel () {
+      return this.nuevasObs > 9 ? '+9' : String(this.nuevasObs)
     }
   },
   methods: {
@@ -148,6 +158,36 @@ export default {
         autoHideDelay: 2500,
         appendToast: false
       })
+    },
+    async cargarNuevasObservaciones (idMatricula, idEstudiante) {
+      if (!idMatricula && !idEstudiante) {
+        this.nuevasObs = 0
+        return
+      }
+      try {
+        const { data } = await axios.get(CONFIG.ROOT_PATH + 'acudientes/observador/estudiante', {
+          params: {
+            idMatricula,
+            idEstudiante,
+            vigencia: this.vigencia,
+            historico: 1,
+            _t: Date.now()
+          },
+          timeout: 20000,
+          headers: {
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache'
+          }
+        })
+
+        if (data && data.error === false && data.datos && Array.isArray(data.datos.observador)) {
+          this.nuevasObs = data.datos.observador.filter(function (o) { return Number(o.vista) !== 1 }).length
+        } else {
+          this.nuevasObs = 0
+        }
+      } catch (e) {
+        this.nuevasObs = 0
+      }
     }
   },
   beforeMount() {
@@ -156,6 +196,8 @@ export default {
     const doc = this.$route.query.doc
     this.estudiante = estudiantes.find(x => String(x.idMatricula) === String(idMatricula)) || {}
     this.vigencia = sessionStorage.getItem('acudienteVigencia') || ''
+    const idEstudiante = this.estudiante.idEstudiante || this.estudiante.id || ''
+    this.cargarNuevasObservaciones(idMatricula, idEstudiante)
   }
 }
 </script>
@@ -223,10 +265,29 @@ export default {
 .option-card {
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
 }
 .option-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+}
+.obs-new-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .78rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0 .45rem;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
 }
 .card-click-body { outline: none; }
 
