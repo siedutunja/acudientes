@@ -202,19 +202,9 @@
             <label>Situación</label>
             <p>{{ obsSeleccionada.situacion }}</p>
           </div>
-          <div class="drawer-seccion">
+          <div class="drawer-seccion" v-if="obsSeleccionada.descargos">
             <label>Descargos</label>
-            <textarea
-              v-model="descargosEditable"
-              class="descargos-input"
-              rows="4"
-              placeholder="Escribe aquí tus descargos como acudiente..."
-            ></textarea>
-            <div class="descargos-actions">
-              <button class="btn-guardar-descargos" :disabled="guardandoDescargos || descargosSinCambios()" @click="guardarDescargos">
-                {{ guardandoDescargos ? 'Guardando...' : 'Guardar descargos' }}
-              </button>
-            </div>
+            <p>{{ obsSeleccionada.descargos }}</p>
           </div>
           <div class="drawer-seccion" v-if="obsSeleccionada.compromisos">
             <label>Compromisos</label>
@@ -231,6 +221,20 @@
           <div class="drawer-seccion" v-if="obsSeleccionada.accionR">
             <label>Acción reparadora</label>
             <p>{{ obsSeleccionada.accionR }}</p>
+          </div>
+          <div class="drawer-seccion">
+            <label>Descargos del acudiente</label>
+            <textarea
+              v-model="descargosEditable"
+              class="descargos-input"
+              rows="4"
+              placeholder="Escribe aquí tus descargos como acudiente..."
+            ></textarea>
+            <div class="descargos-actions">
+              <button class="btn-guardar-descargos" :disabled="guardandoDescargos || descargosSinCambios()" @click="guardarDescargos">
+                {{ guardandoDescargos ? 'Guardando...' : 'Guardar descargos' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -402,7 +406,7 @@ export default {
 
     abrirDetalle (obs) {
       this.obsSeleccionada = obs
-      this.descargosEditable = String(obs.descargos || '')
+      this.descargosEditable = String(obs.descargos_acudientes || '')
       this.detalleAbierto = true
       this.marcarVista(obs)
     },
@@ -416,7 +420,7 @@ export default {
 
     descargosSinCambios () {
       if (!this.obsSeleccionada) return true
-      return String(this.descargosEditable || '').trim() === String(this.obsSeleccionada.descargos || '').trim()
+      return String(this.descargosEditable || '').trim() === String(this.obsSeleccionada.descargos_acudientes || '').trim()
     },
 
     async guardarDescargos () {
@@ -425,15 +429,15 @@ export default {
       try {
         const payload = {
           idObservacion: this.obsSeleccionada.id,
-          descargos: this.descargosEditable
+          descargosAcudientes: this.descargosEditable
         }
         const { data } = await axios.put(CONFIG.ROOT_PATH + 'acudientes/observador/descargos', payload, { timeout: 20000 })
 
         if (data && data.error === false) {
           const nuevoDescargo = String(this.descargosEditable || '').trim()
-          this.obsSeleccionada = { ...this.obsSeleccionada, descargos: nuevoDescargo }
+          this.obsSeleccionada = { ...this.obsSeleccionada, descargos_acudientes: nuevoDescargo }
           this.observaciones = this.observaciones.map(o => String(o.id) === String(this.obsSeleccionada.id)
-            ? { ...o, descargos: nuevoDescargo }
+            ? { ...o, descargos_acudientes: nuevoDescargo }
             : o)
 
           this.$bvToast.toast('Descargos actualizados correctamente.', {
