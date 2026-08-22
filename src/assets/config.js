@@ -13,6 +13,7 @@ export const ROOT_MODULO_ACUDIENTES = "http://localhost:8085/acudientes/"
 // export const ROOT_MODULO_ESTUDIANTE = "https://siedutunja.gov.co/estudiante"
 
 export const ROOT_WEBSITE = "https://siedutunja.gov.co"
+export const ROOT_ESCUDOS = "https://siedutunja.gov.co/api/colegios/escudos/"
 
 export const TITULO_MSG = "SieduTunja"
 export const SECRET_KEY = "cataydany3"

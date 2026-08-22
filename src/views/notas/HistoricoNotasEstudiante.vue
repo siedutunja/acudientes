@@ -143,6 +143,35 @@
           </vue-good-table>
         </div>
       </article>
+
+      <!-- Boletín -->
+      <article class="card boletin-card" v-if="config && rows.length">
+        <h3>Boletin</h3>
+        <p class="text-muted small mb-2">
+          Se generará para:
+          <strong>{{ filters.periodo === OPCION_ACUMULADO ? ('Acumulado ' + filters.rangoAcumulado) : (filters.periodo ? ('Periodo ' + filters.periodo) : 'Último periodo disponible') }}</strong>
+        </p>
+        <BoletinAcudiente v-if="!esPreeescolar"
+          :idMatricula="String($route.params.idMatricula)"
+          :idCurso="studentSummary.idCurso"
+          :vigencia="studentSummary.vigencia"
+          :periodosVisibles="periodosVisiblesBoletin"
+          :estudiante="{ ...studentSummary, estudiante: studentSummary.nombre }"
+          :config="config"
+          :nombreInstitucion="studentSummary.nombreInstitucion"
+          :escudoInstitucion="escudoInstitucion"
+        />
+        <BoletinPree v-else
+          :idMatricula="String($route.params.idMatricula)"
+          :idCurso="studentSummary.idCurso"
+          :vigencia="studentSummary.vigencia"
+          :periodosVisibles="periodosVisiblesBoletin"
+          :estudiante="{ ...studentSummary, estudiante: studentSummary.nombre }"
+          :config="config"
+          :nombreInstitucion="studentSummary.nombreInstitucion"
+          :escudoInstitucion="escudoInstitucion"
+        />
+      </article>
     </section>
   </div>
 </template>
@@ -152,13 +181,17 @@ import axios from 'axios'
 import { VueGoodTable } from 'vue-good-table'
 import 'vue-good-table/dist/vue-good-table.css'
 import * as CONFIG from '@/assets/config.js'
+import BoletinAcudiente from '@/views/boletines/BoletinAcudiente'
+import BoletinPree from '@/views/boletines/BoletinPree'
 
 const OPCION_ACUMULADO = 'ACUMULADO'
 
 export default {
   name: 'HistoricoNotasEstudiante',
   components: {
-    VueGoodTable
+    VueGoodTable,
+    BoletinAcudiente,
+    BoletinPree
   },
   data () {
     return {
@@ -167,6 +200,7 @@ export default {
       rows: [],
       studentSummary: {},
       config: null,
+      escudoInstitucion: '',
       OPCION_ACUMULADO,
       filters: {
         periodo: '',
@@ -325,6 +359,12 @@ export default {
       if (!notas.length) return null
       const suma = notas.reduce((acc, n) => acc + n, 0)
       return suma / notas.length
+    },
+    periodosVisiblesBoletin () {
+      if (this.filters.periodo === this.OPCION_ACUMULADO) return this.periodosRangoAcumulado
+      if (this.filters.periodo) return [Number(this.filters.periodo)]
+      const maxPeriodo = Math.max(...this.periodOptions.map(Number), 0)
+      return maxPeriodo ? [maxPeriodo] : [1]
     }
   },
   methods: {
@@ -483,7 +523,10 @@ export default {
         especialidad: estudiante.especialidad || '',
         vigencia,
         nivelGrado: estudiante.nivelGrado || 0,
-        conceptual: estudiante.conceptual || ''
+        conceptual: estudiante.conceptual || '',
+        idCurso: estudiante.idCurso || '',
+        idInstitucion: estudiante.idInstitucion || '',
+        nombreInstitucion: estudiante.nombreInstitucion || ''
       }
     },
     adaptarFilas (rowsApi) {
@@ -505,8 +548,8 @@ export default {
           definitivacompor: r.definitivacompor,
           concepto: r.concepto,
           definitivapree: r.definitivapree,
-          ausJ: r.ausJ,
-          ausS: r.ausS,
+          ausJ: Number(r.ausJ) || 0,
+          ausS: Number(r.ausS) || 0,
           observaciones: r.observaciones || '-',
           inclusion: r.inclusion,
           fecha_recupera: r.fecha_recupera,
@@ -594,6 +637,11 @@ export default {
 
     this.studentSummary = this.construirResumen(estudianteSeleccionado, vigencia)
     const idInstitucion = estudianteSeleccionado.idInstitucion || sessionStorage.getItem('acudienteIdInstitucion') || ''
+    const escudo = sessionStorage.getItem('acudienteEscudoInstitucion') || ''
+    this.escudoInstitucion = escudo ? (CONFIG.ROOT_ESCUDOS + escudo) : ''
+    if (!this.studentSummary.nombreInstitucion) {
+      this.studentSummary.nombreInstitucion = sessionStorage.getItem('acudienteNombreInstitucion') || ''
+    }
     this.cargarConfig(String(idInstitucion), String(vigencia))
     this.cargarHistoricoNotas(estudianteSeleccionado)
   }
@@ -640,6 +688,8 @@ export default {
   border-radius: 999px;
   letter-spacing: .04em;
 }
+.boletin-card { padding: 1rem; }
+.boletin-card h3 { margin: 0 0 0.5rem; color: #1e4f8f; font-size: 1.05rem; }
 @media (max-width: 1100px) {
   .student-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
   .filters-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }

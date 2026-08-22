@@ -69,6 +69,8 @@
           </div>
         </CCardBody>
       </CCard>
+
+      <PanelMensajes v-if="acudiente" :mensajes="mensajes" :id-persona="acudiente.idPersona" @leido="marcarMensajeLeido"/>
     </CContainer>
   </div>
 </template>
@@ -76,15 +78,21 @@
 <script>
 import axios from 'axios'
 import * as CONFIG from '@/assets/config.js'
+import PanelMensajes from '@/views/acudientes/PanelMensajes'
 
 export default {
   name: 'PanelAcudiente',
+  components: {
+    PanelMensajes
+  },
   data () {
     return {
       token: '',
       acudiente: null,
       estudiantes: [],
-      cargando: false
+      mensajes: [],
+      cargando: false,
+      pollMensajesTimer: null
     }
   },
   computed: {
@@ -140,6 +148,8 @@ export default {
         sessionStorage.setItem('acudienteNombre', this.acudiente.acudiente || 'Acudiente')
         sessionStorage.setItem('acudienteVigencia', String(this.acudiente.vigencia || ''))
         sessionStorage.setItem('acudienteIdInstitucion', String(this.acudiente.idInstitucion || ''))
+        sessionStorage.setItem('acudienteNombreInstitucion', this.acudiente.nombreInstitucion || '')
+        sessionStorage.setItem('acudienteEscudoInstitucion', this.acudiente.escudoInstitucion || '')
 
         if (!estudiantesRes.data.error && estudiantesRes.data.datos && estudiantesRes.data.datos !== 0) {
           this.estudiantes = estudiantesRes.data.datos
@@ -148,10 +158,35 @@ export default {
           this.estudiantes = []
           sessionStorage.removeItem('acudienteEstudiantes')
         }
+
+        this.consultaMensajes()
       } catch (err) {
         this.mensajeEmergente('danger', CONFIG.TITULO_MSG, 'No se pudo cargar la información del acudiente. ' + err)
       } finally {
         this.cargando = false
+      }
+    },
+    async consultaMensajes() {
+      if (!this.acudiente || !this.acudiente.idPersona) {
+        return
+      }
+      try {
+        const { data } = await axios.get(CONFIG.ROOT_PATH + 'acudientes/mensajes', {
+          params: {
+            idPersona: this.acudiente.idPersona,
+            idInstitucion: this.acudiente.idInstitucion,
+            vigencia: this.acudiente.vigencia
+          }
+        })
+        this.mensajes = (!data.error && data.datos && data.datos !== 0) ? data.datos : []
+      } catch (err) {
+        this.mensajes = []
+      }
+    },
+    marcarMensajeLeido(idMensaje) {
+      const msg = this.mensajes.find(m => m.id === idMensaje)
+      if (msg) {
+        msg.leido = 1
       }
     }
   },
@@ -163,6 +198,15 @@ export default {
       this.token = sessionStorage.getItem('token') || ''
     }
     this.validarSesion()
+  },
+  mounted() {
+    // Consulta periódica para reflejar mensajes nuevos casi al instante, sin recargar la página.
+    this.pollMensajesTimer = setInterval(() => {
+      this.consultaMensajes()
+    }, 4000)
+  },
+  beforeDestroy() {
+    clearInterval(this.pollMensajesTimer)
   }
 }
 </script>
