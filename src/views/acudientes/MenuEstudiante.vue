@@ -90,7 +90,18 @@ export default {
       // usaMatricula: true  → pasa idMatricula como param de ruta
       // usaMatricula: false → ruta general sin param (ej. vista por curso como el INEM)
       const RUTAS_NOTAS_POR_INSTITUCION = {
-        'eb58bf60-fc83-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-inem', usaMatricula: true  } // INEM Tunja
+        'eb58bf60-fc83-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-inem', usaMatricula: true }, // IE INEM Carlos Arturo Torres
+        '7c63ed50-fcb0-11ec-8267-536b07c743c4': { name: 'consulta-notas-normal-santiago', usaMatricula: true }, // Escuela Normal Superior Santiago de Tunja
+        '17ee4f30-fc80-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-normal-leonor', usaMatricula: true }, // Escuela Normal Superior Leonor Alvarez Pinzón
+        '54fd7440-fc81-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-antonio-jose', usaMatricula: true }, // IE Antonio José Sandoval Gómez
+        '660fa760-fc83-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-gran-colombiano', usaMatricula: true }, // IE Gimnasio Gran Colombiano
+        'f5529ba0-fcb3-11ec-8267-536b07c743c4': { name: 'consulta-notas-gustavo-rojas', usaMatricula: true }, // IE Gustavo Rojas Pinilla
+        'bd226a20-fc82-11ec-a1d1-1dc2835404e5': { name: 'consulta-notas-julius-sieber', usaMatricula: true }, // IE Julius Sieber
+        '8a1bd1e0-fcb2-11ec-8267-536b07c743c4': { name: 'consulta-notas-libertador', usaMatricula: true }, // IE Libertador Simón Bolívar
+        '097b7b10-fcaa-11ec-8267-536b07c743c4': { name: 'consulta-notas-rural-sur', usaMatricula: true }, // IE Rural del Sur
+        'acaa36d0-fcb1-11ec-8267-536b07c743c4': { name: 'consulta-notas-san-jeronimo', usaMatricula: true }, // IE San Jerónimo Emiliani
+        'c50f3d80-fca0-11ec-8267-536b07c743c4': { name: 'consulta-notas-silvino-rodriguez', usaMatricula: true }, // IE Silvino Rodríguez
+        'f0491770-fca8-11ec-8267-536b07c743c4': { name: 'consulta-notas-tecnico-gonzalo-suarez', usaMatricula: true } // IE Técnico Gonzálo Suárez Rendón
       }
       const RUTA_DEFAULT = { name: 'historico-notas-estudiante', usaMatricula: true }
 
