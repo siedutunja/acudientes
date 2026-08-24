@@ -9,6 +9,7 @@ export const ROOT_HOME = "https://siedutunja.gov.co/loginacudientes/"
 export const ROOT_MODULO_ACUDIENTES = "https://siedutunja.gov.co/acudientes"
 
 export const ROOT_WEBSITE = "https://siedutunja.gov.co"
+export const ROOT_ESCUDOS = "https://siedutunja.gov.co/api/colegios/escudos/"
 
 export const TITULO_MSG = "SieduTunja"
 export const SECRET_KEY = "cataydany3"

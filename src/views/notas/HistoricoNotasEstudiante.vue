@@ -84,8 +84,17 @@
         </div>
       </article>
 
-      <article class="card table-card">
+      <article v-if="esConceptual && rows.length" class="card state-block">
+        <div class="conceptual-badge">EVALUACION CONCEPTUAL</div>
+        <p class="mt-2 text-muted">Este estudiante es evaluado de forma conceptual. Contacte al colegio para mayor información.</p>
+      </article>
+
+      <article v-else class="card table-card">
         <div v-if="loading" class="state-block">Cargando notas...</div>
+        <div v-else-if="!rows.length && consultaRealizada" class="state-block empty">
+          <h4>Sin registros</h4>
+          <p>No hay notas registradas para la vigencia {{ studentSummary.vigencia }}.</p>
+        </div>
         <div v-else-if="!filteredRows.length" class="state-block empty">
           <h4>Sin registros</h4>
           <p>No hay notas para los filtros seleccionados.</p>
@@ -100,8 +109,11 @@
             :sort-options="{ enabled: true }"
           >
             <template slot="table-row" slot-scope="props">
-              <span v-if="props.column.field === 'definitiva' || props.column.field === 'definitivapree'">
-                <span :class="['badge', scoreClass(props.row[props.column.field])]">{{ asScore(props.row[props.column.field]) }}</span>
+              <span v-if="props.column.field === 'definitiva'">
+                <span :class="['badge', scoreClass(props.row.definitiva, props.row.tipoAsignatura)]">{{ asScore(props.row.definitiva) }}</span>
+              </span>
+              <span v-else-if="props.column.field === 'definitivapree'">
+                <span :class="['badge', preeClass(props.row)]">{{ preeDisplay(props.row) }}</span>
               </span>
               <span v-else-if="props.column.field === 'areaDisplay'" class="text-wrap-cell">
                 {{ props.row.nombreArea || props.row.nemoArea || '-' }}
@@ -109,11 +121,20 @@
               <span v-else-if="props.column.field === 'asignaturaDisplay'" class="text-wrap-cell">
                 {{ props.row.nombreAsignatura || props.row.nemo || '-' }}
               </span>
-              <span v-else-if="props.column.field === 'defC1' || props.column.field === 'defC2' || props.column.field === 'defC3'">
-                <span :class="['badge', scoreClass(props.row[props.column.field])]">{{ asScore(props.row[props.column.field]) }}</span>
+              <span v-else-if="props.column.field === 'defC1' || props.column.field === 'defC2' || props.column.field === 'defC3' || props.column.field === 'recuperacion'">
+                <span :class="['badge', scoreClass(props.row[props.column.field], props.row.tipoAsignatura)]">{{ asScore(props.row[props.column.field]) }}</span>
               </span>
               <span v-else-if="props.column.field === 'concepto'">
                 <span :class="['badge', conceptoClass(props.row.concepto)]">{{ props.row.concepto || '—' }}</span>
+              </span>
+              <span v-else-if="props.column.field === 'definitivacompor'">
+                <span :class="['badge', comporClass(props.row)]">{{ comporDisplay(props.row) }}</span>
+              </span>
+              <span v-else-if="props.column.field === 'ausJ'">
+                <span :class="['badge', Number(props.row.ausJ) > 0 ? 'badge-low' : 'badge-zero']">{{ props.row.ausJ || 0 }}</span>
+              </span>
+              <span v-else-if="props.column.field === 'ausS'">
+                <span :class="['badge', Number(props.row.ausS) > 0 ? 'badge-mid' : 'badge-zero']">{{ props.row.ausS || 0 }}</span>
               </span>
               <span v-else-if="props.column.field === 'fecha_recupera'">{{ asDate(props.row.fecha_recupera) }}</span>
               <span v-else-if="props.column.field === 'observaciones'" class="text-wrap-cell">{{ props.row.observaciones || '-' }}</span>
@@ -121,6 +142,35 @@
             </template>
           </vue-good-table>
         </div>
+      </article>
+
+      <!-- Boletín -->
+      <article class="card boletin-card" v-if="config && rows.length">
+        <h3>Boletin</h3>
+        <p class="text-muted small mb-2">
+          Se generará para:
+          <strong>{{ filters.periodo === OPCION_ACUMULADO ? ('Acumulado ' + filters.rangoAcumulado) : (filters.periodo ? ('Periodo ' + filters.periodo) : 'Último periodo disponible') }}</strong>
+        </p>
+        <BoletinAcudiente v-if="!esPreeescolar"
+          :idMatricula="String($route.params.idMatricula)"
+          :idCurso="studentSummary.idCurso"
+          :vigencia="studentSummary.vigencia"
+          :periodosVisibles="periodosVisiblesBoletin"
+          :estudiante="{ ...studentSummary, estudiante: studentSummary.nombre }"
+          :config="config"
+          :nombreInstitucion="studentSummary.nombreInstitucion"
+          :escudoInstitucion="escudoInstitucion"
+        />
+        <BoletinPree v-else
+          :idMatricula="String($route.params.idMatricula)"
+          :idCurso="studentSummary.idCurso"
+          :vigencia="studentSummary.vigencia"
+          :periodosVisibles="periodosVisiblesBoletin"
+          :estudiante="{ ...studentSummary, estudiante: studentSummary.nombre }"
+          :config="config"
+          :nombreInstitucion="studentSummary.nombreInstitucion"
+          :escudoInstitucion="escudoInstitucion"
+        />
       </article>
     </section>
   </div>
@@ -131,20 +181,26 @@ import axios from 'axios'
 import { VueGoodTable } from 'vue-good-table'
 import 'vue-good-table/dist/vue-good-table.css'
 import * as CONFIG from '@/assets/config.js'
+import BoletinAcudiente from '@/views/boletines/BoletinAcudiente'
+import BoletinPree from '@/views/boletines/BoletinPree'
 
 const OPCION_ACUMULADO = 'ACUMULADO'
 
 export default {
   name: 'HistoricoNotasEstudiante',
   components: {
-    VueGoodTable
+    VueGoodTable,
+    BoletinAcudiente,
+    BoletinPree
   },
   data () {
     return {
       loading: false,
+      consultaRealizada: false,
       rows: [],
       studentSummary: {},
       config: null,
+      escudoInstitucion: '',
       OPCION_ACUMULADO,
       filters: {
         periodo: '',
@@ -159,6 +215,12 @@ export default {
   computed: {
     esPreeescolar () {
       return Number(this.studentSummary.nivelGrado) === 1
+    },
+    esConceptual () {
+      return String(this.studentSummary.conceptual || '').trim().toUpperCase() === 'S'
+    },
+    tieneRecuperaciones () {
+      return this.rows.some(r => Number(r.recuperacion) > 0)
     },
     columns () {
       const base = [
@@ -180,9 +242,11 @@ export default {
         }
         base.push(
           { label: 'Definitiva', field: 'definitiva', width: '90px', thClass: 'text-center', tdClass: 'text-center', type: 'number' },
-          { label: 'Concepto', field: 'concepto', width: '90px', thClass: 'text-center', tdClass: 'text-center' },
-          { label: 'Recupera', field: 'recuperacion', width: '80px', thClass: 'text-center', tdClass: 'text-center', type: 'number' }
+          { label: 'Concepto', field: 'concepto', width: '90px', thClass: 'text-center', tdClass: 'text-center' }
         )
+        if (this.tieneRecuperaciones) {
+          base.push({ label: 'Recupera', field: 'recuperacion', width: '80px', thClass: 'text-center', tdClass: 'text-center', type: 'number' })
+        }
       }
       base.push(
         { label: 'Compor.', field: 'definitivacompor', width: '75px', thClass: 'text-center', tdClass: 'text-center' },
@@ -238,7 +302,7 @@ export default {
           ausS: 0,
           inclusion: '-',
           observaciones: '-',
-          concepto: this.conceptoDesdeDefinitiva(definitiva),
+          concepto: this.conceptoDesdeDefinitiva(definitiva, base.tipoAsignatura),
           definitiva,
           esAcumulado: true
         }
@@ -289,13 +353,18 @@ export default {
       return list
     },
     promedioGeneralActual () {
-      const base = this.filters.periodo === this.OPCION_ACUMULADO ? this.rowsAcumulados : this.filteredRows
-      const notas = base
+      const notas = this.rowsAcumulados
         .map(r => Number(r.definitiva))
         .filter(n => Number.isFinite(n) && n > 0)
       if (!notas.length) return null
       const suma = notas.reduce((acc, n) => acc + n, 0)
       return suma / notas.length
+    },
+    periodosVisiblesBoletin () {
+      if (this.filters.periodo === this.OPCION_ACUMULADO) return this.periodosRangoAcumulado
+      if (this.filters.periodo) return [Number(this.filters.periodo)]
+      const maxPeriodo = Math.max(...this.periodOptions.map(Number), 0)
+      return maxPeriodo ? [maxPeriodo] : [1]
     }
   },
   methods: {
@@ -320,9 +389,19 @@ export default {
       const suma = periodos.reduce((acc, p) => acc + (Number(notasPorPeriodo[p]) || 0), 0)
       return suma / periodos.length
     },
-    conceptoDesdeDefinitiva (nota) {
+    conceptoDesdeDefinitiva (nota, tipoAsig) {
       const n = Number(nota)
       if (!Number.isFinite(n) || n <= 0) return '-'
+      if (this.config) {
+        const tecnica = Number(tipoAsig) === 2
+        const maxBaj = Number(tecnica ? this.config.maxBajT : this.config.maxBaj) || 2.9
+        const maxBas = Number(tecnica ? this.config.maxBasT : this.config.maxBas) || 3.9
+        const maxAlt = Number(tecnica ? this.config.maxAltT : this.config.maxAlt) || 4.5
+        if (n <= maxBaj) return 'BAJO'
+        if (n <= maxBas) return 'BASICO'
+        if (n <= maxAlt) return 'ALTO'
+        return 'SUPERIOR'
+      }
       if (n < 3.0) return 'BAJO'
       if (n < 4.0) return 'BASICO'
       if (n < 4.5) return 'ALTO'
@@ -339,7 +418,7 @@ export default {
       if (Number.isNaN(d.getTime())) return String(v)
       return d.toLocaleDateString('es-CO')
     },
-    scoreClass (v) {
+    scoreClass (v, tipoAsig) {
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return 'badge-mid'
       // Letras preescolar: A/S = aprobado (verde), B = básico (azul), D = bajo (rojo)
       const letra = String(v).trim().toUpperCase()
@@ -349,8 +428,19 @@ export default {
       // Numérico
       const n = Number(v)
       if (Number.isNaN(n)) return 'badge-mid'
+      if (this.config) {
+        const tecnica = Number(tipoAsig) === 2
+        const maxBaj = Number(tecnica ? this.config.maxBajT : this.config.maxBaj) || 2.9
+        const maxBas = Number(tecnica ? this.config.maxBasT : this.config.maxBas) || 3.9
+        const maxAlt = Number(tecnica ? this.config.maxAltT : this.config.maxAlt) || 4.5
+        if (n <= maxBaj) return 'badge-low'
+        if (n <= maxBas) return 'badge-mid'
+        if (n <= maxAlt) return 'badge-blue'
+        return 'badge-high'
+      }
       if (n < 3.0) return 'badge-low'
       if (n < 4.0) return 'badge-mid'
+      if (n < 4.5) return 'badge-blue'
       return 'badge-high'
     },
     async cargarConfig (idInstitucion, vigencia) {
@@ -363,13 +453,54 @@ export default {
       } catch (e) { /* config no crítico */ }
     },
     conceptoClass (concepto) {
-      if (!concepto) return 'badge-mid'
+      if (!concepto || concepto === '-') return 'badge-mid'
       const c = String(concepto).toUpperCase().trim()
       if (c === 'SUPERIOR') return 'badge-high'
       if (c === 'ALTO') return 'badge-blue'
       if (c === 'BASICO' || c === 'BÁSICO') return 'badge-mid'
       if (c === 'BAJO') return 'badge-low'
+      // Preescolar / comportamiento: Logrado=alto, No Logrado=bajo, Insuficiente=bajo, Aceptable=medio
+      if (c === 'LOGRADO' || c === 'L') return 'badge-high'
+      if (c.startsWith('NO LOGRADO') || c === 'NL') return 'badge-low'
+      if (c === 'INSUFICIENTE' || c === 'I') return 'badge-low'
+      if (c === 'ACEPTABLE' || c === 'A') return 'badge-mid'
+      if (c === 'EXCELENTE' || c === 'E') return 'badge-high'
+      if (c === 'SOBRESALIENTE') return 'badge-blue'
+      // Convenciones de preescolar: S=Superado, P=En Proceso, R=Nec. Refuerzo
+      if (c === 'SUPERADO') return 'badge-high'
+      if (c === 'P' || c === 'EN PROCESO') return 'badge-mid'
+      if (c === 'R' || c.startsWith('NEC')) return 'badge-low'
       return 'badge-mid'
+    },
+    preeDisplay (row) {
+      const v = row.definitivapree
+      if (v === null || v === undefined || v === '' || v === 0 || v === '0') return '-'
+      const n = Number(v)
+      return Number.isNaN(n) ? String(v) : n.toFixed(1)
+    },
+    preeClass (row) {
+      const v = row.definitivapree
+      if (!v) return 'badge-mid'
+      const n = Number(v)
+      if (Number.isNaN(n)) return this.conceptoClass(String(v))
+      return this.scoreClass(v, 1)
+    },
+    tieneCompor (row) {
+      const v = row.definitivacompor
+      return v !== null && v !== undefined && v !== '' && v !== 0 && v !== '0'
+    },
+    comporDisplay (row) {
+      if (!this.tieneCompor(row)) return '-'
+      const v = row.definitivacompor
+      const n = Number(v)
+      return Number.isNaN(n) ? String(v) : n.toFixed(1)
+    },
+    comporClass (row) {
+      if (!this.tieneCompor(row)) return 'badge-mid'
+      const v = row.definitivacompor
+      const n = Number(v)
+      if (Number.isNaN(n)) return this.conceptoClass(String(v))
+      return this.scoreClass(v, 1)
     },
     volverAMenuEstudiante () {
       const idMatricula = this.$route.params.idMatricula
@@ -391,7 +522,11 @@ export default {
         jornada: estudiante.jornada || '',
         especialidad: estudiante.especialidad || '',
         vigencia,
-        nivelGrado: estudiante.nivelGrado || 0
+        nivelGrado: estudiante.nivelGrado || 0,
+        conceptual: estudiante.conceptual || '',
+        idCurso: estudiante.idCurso || '',
+        idInstitucion: estudiante.idInstitucion || '',
+        nombreInstitucion: estudiante.nombreInstitucion || ''
       }
     },
     adaptarFilas (rowsApi) {
@@ -413,8 +548,8 @@ export default {
           definitivacompor: r.definitivacompor,
           concepto: r.concepto,
           definitivapree: r.definitivapree,
-          ausJ: r.ausJ,
-          ausS: r.ausS,
+          ausJ: Number(r.ausJ) || 0,
+          ausS: Number(r.ausS) || 0,
           observaciones: r.observaciones || '-',
           inclusion: r.inclusion,
           fecha_recupera: r.fecha_recupera,
@@ -474,6 +609,7 @@ export default {
         this.rows = []
       } finally {
         this.loading = false
+        this.consultaRealizada = true
       }
     }
   },
@@ -500,7 +636,12 @@ export default {
     }
 
     this.studentSummary = this.construirResumen(estudianteSeleccionado, vigencia)
-    const idInstitucion = sessionStorage.getItem('acudienteIdInstitucion') || ''
+    const idInstitucion = estudianteSeleccionado.idInstitucion || sessionStorage.getItem('acudienteIdInstitucion') || ''
+    const escudo = sessionStorage.getItem('acudienteEscudoInstitucion') || ''
+    this.escudoInstitucion = escudo ? (CONFIG.ROOT_ESCUDOS + escudo) : ''
+    if (!this.studentSummary.nombreInstitucion) {
+      this.studentSummary.nombreInstitucion = sessionStorage.getItem('acudienteNombreInstitucion') || ''
+    }
     this.cargarConfig(String(idInstitucion), String(vigencia))
     this.cargarHistoricoNotas(estudianteSeleccionado)
   }
@@ -534,8 +675,21 @@ export default {
 .badge-mid { background: rgba(219, 169, 19, 0.2); color: #8f6b05; }
 .badge-high { background: rgba(33, 153, 77, 0.18); color: #1f7f44; }
 .badge-blue { background: rgba(20, 90, 200, 0.15); color: #1452a5; }
+.badge-zero { background: rgba(0,0,0,0.06); color: #9aabb8; }
 .state-block { text-align: center; color: #617486; padding: 2rem 1rem; }
 .state-block.empty h4 { margin: 0 0 0.3rem; color: #1e4f8f; }
+.conceptual-badge {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1e4f8f;
+  font-weight: 700;
+  font-size: .85rem;
+  padding: .4rem 1.2rem;
+  border-radius: 999px;
+  letter-spacing: .04em;
+}
+.boletin-card { padding: 1rem; }
+.boletin-card h3 { margin: 0 0 0.5rem; color: #1e4f8f; font-size: 1.05rem; }
 @media (max-width: 1100px) {
   .student-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }
   .filters-grid { grid-template-columns: repeat(3, minmax(120px, 1fr)); }

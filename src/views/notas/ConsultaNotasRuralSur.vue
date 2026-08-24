@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="p-2 p-md-3">
     <div class="mb-3">
       <b-button variant="outline-primary" @click="volverAlMenu">&larr; Regresar al menu del estudiante</b-button>
@@ -20,7 +20,7 @@
             <div class="item"><span>Grado</span><strong>{{ estudiante.grado || '-' }}</strong></div>
             <div class="item"><span>Curso</span><strong>{{ estudiante.curso || '-' }}</strong></div>
             <div class="item"><span>Jornada</span><strong>{{ estudiante.jornada || '-' }}</strong></div>
-            <div class="item"><span>Institucion</span><strong>IE INEM C.A. TORRES</strong></div>
+            <div class="item"><span>Institucion</span><strong>{{ estudiante.nombreInstitucion || nombreInstitucionFallback }}</strong></div>
             <div class="item"><span>Vigencia</span><strong>{{ vigencia }}</strong></div>
           </div>
         </div>
@@ -41,8 +41,7 @@
           <div class="field" v-if="periodoSeleccionado === OPCION_ACUMULADO">
             <label>Rango acumulado</label>
             <select v-model="rangoAcumulado">
-              <option value="1-2">1 a 2</option>
-              <option value="1-3">1 a 3</option>
+              <option v-for="op in opcionesRangoAcumulado" :key="op" :value="op">1 a {{ op.split('-')[1] }}</option>
             </select>
           </div>
           <div class="field">
@@ -55,7 +54,7 @@
         </div>
         <!-- Fila 2: leyendas -->
         <div class="filters-legends">
-          <div v-if="config && !esPreescolar && !esCualitativo123" class="legend-col">
+          <div v-if="config && !esPreescolar" class="legend-col">
             <label>Criterios de evaluacion</label>
             <div class="legend-row">
               <span v-if="config.estadoC1" class="badge badge-crit mr-1">{{ config.nombreC1 }} {{ config.porcentajeC1 }}%</span>
@@ -71,15 +70,6 @@
               <span v-if="config.preeL3" :class="['badge mr-1', conceptoClass(config.preeL3)]">{{ config.preeL3 }} - {{ config.preeC3 }}</span>
               <span v-if="config.preeL4" :class="['badge', conceptoClass(config.preeL4)]">{{ config.preeL4 }} - {{ config.preeC4 }}</span>
             </div>
-            <div v-else-if="esCualitativo123" class="legend-row">
-              <div class="legend-group">
-                <span class="badge badge-low mr-1">BAJO J</span>
-                <span class="badge badge-mid mr-1">BASICO B</span>
-                <span class="badge badge-blue mr-1">ALTO A</span>
-                <span class="badge badge-high">SUPERIOR S</span>
-              </div>
-            </div>
-            <!-- Normal: BAJO / BASICO / ALTO / SUPERIOR con rangos -->
             <div v-else class="legend-row">
               <template v-if="config">
                 <div class="legend-group">
@@ -155,15 +145,15 @@
 
                 <!-- ===== PRIMARIA / SECUNDARIA / MEDIA: criterios C1 C2 C3 + definitiva ===== -->
                 <template v-else>
-                  <div v-if="config && config.estadoC1 && !row.esAcumulado && !esCualitativo123" class="crit-box">
+                  <div v-if="config && config.estadoC1 && !row.esAcumulado" class="crit-box">
                     <div class="crit-label">{{ config.nombreC1 }}</div>
                     <span :class="['badge', scoreClass(row.defC1, row.tipoAsignatura)]">{{ asScore(row.defC1) }}</span>
                   </div>
-                  <div v-if="config && config.estadoC2 && !row.esAcumulado && !esCualitativo123" class="crit-box">
+                  <div v-if="config && config.estadoC2 && !row.esAcumulado" class="crit-box">
                     <div class="crit-label">{{ config.nombreC2 }}</div>
                     <span :class="['badge', scoreClass(row.defC2, row.tipoAsignatura)]">{{ asScore(row.defC2) }}</span>
                   </div>
-                  <div v-if="config && config.estadoC3 && !row.esAcumulado && !esCualitativo123" class="crit-box">
+                  <div v-if="config && config.estadoC3 && !row.esAcumulado" class="crit-box">
                     <div class="crit-label">{{ config.nombreC3 }}</div>
                     <span :class="['badge', scoreClass(row.defC3, row.tipoAsignatura)]">{{ asScore(row.defC3) }}</span>
                   </div>
@@ -174,15 +164,14 @@
                     </div>
                   </template>
                   <div class="crit-box crit-main">
-                    <div class="crit-label">{{ esCualitativo123 ? 'Nota final' : 'Definitiva' }}</div>
-                    <span v-if="esCualitativo123" :class="['badge', 'badge-lg', conceptoClass(nota123Concepto(row))]">{{ nota123Display(row) }}</span>
-                    <span v-else :class="['badge', 'badge-lg', scoreClass(definitivaCalc(row), row.tipoAsignatura)]">{{ asScore(definitivaCalc(row)) }}</span>
+                    <div class="crit-label">Definitiva</div>
+                    <span :class="['badge', 'badge-lg', scoreClass(definitivaCalc(row), row.tipoAsignatura)]">{{ asScore(definitivaCalc(row)) }}</span>
                   </div>
                   <div class="crit-box">
                     <div class="crit-label">Concepto</div>
-                    <span :class="['badge', conceptoClass(esCualitativo123 ? nota123Concepto(row) : conceptoCalc(row))]">{{ esCualitativo123 ? nota123Concepto(row) : conceptoCalc(row) }}</span>
+                    <span :class="['badge', conceptoClass(conceptoCalc(row))]">{{ conceptoCalc(row) }}</span>
                   </div>
-                  <div v-if="Number(row.recuperacion) > 0 && !row.esAcumulado && !esCualitativo123" class="crit-box">
+                  <div v-if="Number(row.recuperacion) > 0 && !row.esAcumulado" class="crit-box">
                     <div class="crit-label">Recupera</div>
                     <span :class="['badge', scoreClass(row.recuperacion, row.tipoAsignatura)]">{{ asScore(row.recuperacion) }}</span>
                   </div>
@@ -213,7 +202,7 @@
           <h3>Boletin</h3>
           <p class="text-muted small mb-2">
             Se generará para:
-            <strong>{{ periodoSeleccionado === OPCION_ACUMULADO ? ('Acumulado ' + rangoAcumulado) : ('Periodo ' + periodoSeleccionado) }}</strong>
+            <strong>{{ periodoSeleccionado === OPCION_ACUMULADO ? ('Acumulado 1 a ' + rangoAcumulado.split('-')[1]) : ('Periodo ' + periodoSeleccionado) }}</strong>
           </p>
           <BoletinAcudiente v-if="!esPreescolar"
             :idMatricula="String($route.params.idMatricula)"
@@ -222,7 +211,7 @@
             :periodosVisibles="periodosVisiblesBoletin"
             :estudiante="estudiante"
             :config="config"
-            :nombreInstitucion="'IE INEM C.A. TORRES'"
+            :nombreInstitucion="estudiante.nombreInstitucion || nombreInstitucionFallback"
             :escudoInstitucion="escudoInstitucion"
           />
           <BoletinPree v-else
@@ -232,7 +221,7 @@
             :periodosVisibles="periodosVisiblesBoletin"
             :estudiante="estudiante"
             :config="config"
-            :nombreInstitucion="'IE INEM C.A. TORRES'"
+            :nombreInstitucion="estudiante.nombreInstitucion || nombreInstitucionFallback"
             :escudoInstitucion="escudoInstitucion"
           />
         </article>
@@ -245,16 +234,14 @@
 <script>
 import axios from 'axios'
 import * as CONFIG from '@/assets/config.js'
-import BoletinAcudiente from '@/views/boletines/BoletinInem'
+import BoletinAcudiente from '@/views/boletines/BoletinRuralSur'
 import BoletinPree from '@/views/boletines/BoletinPree'
 
-const ID_INEM = 'eb58bf60-fc83-11ec-a1d1-1dc2835404e5'
+const ID_RURAL_SUR = '097b7b10-fcaa-11ec-8267-536b07c743c4'
 const OPCION_ACUMULADO = 'ACUMULADO'
-const PESOS_INEM = { 1: 30, 2: 35, 3: 35 }
-const MAP_NOTA123_NUM = { J: 1, B: 3, A: 4, S: 5 }
 
 export default {
-  name: 'ConsultaNotasInem',
+  name: 'ConsultaNotasRuralSur',
   components: { BoletinAcudiente, BoletinPree },
   data () {
     return {
@@ -266,42 +253,50 @@ export default {
       vigencia: '',
       config: null,
       periodoSeleccionado: null,
-      rangoAcumulado: '1-3',
+      rangoAcumulado: '1-4',
       filtroArea: '',
+      nombreInstitucionFallback: 'INSTITUCIÓN EDUCATIVA RURAL DEL SUR',
       escudoInstitucion: ''
     }
   },
   computed: {
-    // Nivel 1 = Preescolar
     esPreescolar () {
       return Number(this.estudiante.nivelGrado) === 1
     },
-    esCualitativo123 () {
-      const g = String(this.estudiante.grado || '').trim().toUpperCase()
-      return /^1(\D|$)/.test(g) || /^2(\D|$)/.test(g) || /^3(\D|$)/.test(g) ||
-        g.includes('PRIMERO') || g.includes('SEGUNDO') || g.includes('TERCERO')
-    },
-    // Estudiante evaluado de forma conceptual (sin notas numericas)
     esConceptual () {
       return String(this.estudiante.conceptual || '').trim().toUpperCase() === 'S'
     },
-    // Tiene al menos una asignatura técnica en los datos cargados
     tieneTecnica () {
       return this.rows.some(r => Number(r.tipoAsignatura) === 2)
+    },
+    numPeriodos () {
+      return Number(this.config?.numPeriodos) || 4
+    },
+    pesosPeriodos () {
+      const c = this.config || {}
+      return { 1: Number(c.pesoP1) || 0, 2: Number(c.pesoP2) || 0, 3: Number(c.pesoP3) || 0, 4: Number(c.pesoP4) || 0 }
     },
     periodosDisponibles () {
       return [...new Set(this.rows.map(r => r.periodo))].sort((a, b) => a - b)
     },
+    opcionesRangoAcumulado () {
+      const opciones = []
+      for (let p = 2; p <= this.numPeriodos; p++) opciones.push('1-' + p)
+      return opciones.length ? opciones : ['1-4']
+    },
     periodosRangoAcumulado () {
-      return this.rangoAcumulado === '1-2' ? [1, 2] : [1, 2, 3]
+      const hasta = Number(this.rangoAcumulado.split('-')[1]) || this.numPeriodos
+      const arr = []
+      for (let p = 1; p <= hasta; p++) arr.push(p)
+      return arr
     },
     periodosVisiblesBoletin () {
       if (this.periodoSeleccionado === this.OPCION_ACUMULADO) return this.periodosRangoAcumulado
       return this.periodoSeleccionado ? [this.periodoSeleccionado] : [1]
     },
     acumuladoLabel () {
-      if (this.rangoAcumulado === '1-2') return 'Acumulado (P1 30% • P2 35%)'
-      return 'Acumulado (P1 30% • P2 35% • P3 35%)'
+      const partes = this.periodosRangoAcumulado.map(p => 'P' + p + ' ' + (this.pesosPeriodos[p] || 0) + '%')
+      return 'Acumulado (' + partes.join(' • ') + ')'
     },
     rowsAcumulados () {
       const porAsignatura = {}
@@ -328,7 +323,6 @@ export default {
           ausJ: 0,
           ausS: 0,
           definitiva: acumulado.definitiva,
-          nota123: acumulado.nota123Final || '',
           periodosFinales: acumulado.periodosFinales || {}
         }
       }).sort((a, b) => {
@@ -376,7 +370,6 @@ export default {
       this.$router.push({ name: 'menu-estudiante', params: { idMatricula: String(idMatricula || '') } })
     },
 
-    // ── Concepto calculado dinamicamente desde definitiva y rangos de secciones_ie ──
     conceptoCalc (row) {
       if (!this.config) return row.concepto || '-'
       const def = Number(this.definitivaCalc(row))
@@ -392,7 +385,6 @@ export default {
       return 'SUPERIOR'
     },
 
-    // ── Definitiva calculada dinamicamente desde porcentajes de secciones_ie ──
     definitivaCalc (row) {
       if (!this.config) return row.definitiva
       if (row && row.esAcumulado) return row.definitiva
@@ -409,32 +401,11 @@ export default {
 
     calcularAcumuladoPorMateria (registros) {
       const periodos = this.periodosRangoAcumulado
-      const totalPesos = periodos.reduce((acc, p) => acc + (PESOS_INEM[p] || 0), 0)
-      if (!totalPesos) return { definitiva: 0, nota123Final: '', periodosFinales: {} }
+      const pesos = this.pesosPeriodos
+      const totalPesos = periodos.reduce((acc, p) => acc + (pesos[p] || 0), 0)
+      if (!totalPesos) return { definitiva: 0, periodosFinales: {} }
 
-      if (this.esCualitativo123) {
-        const notaPorPeriodo = { 1: 0, 2: 0, 3: 0 }
-        const periodosFinales = {}
-
-        registros.forEach(r => {
-          const p = Number(r.periodo)
-          if (!periodos.includes(p)) return
-          const letra = this.normalizarNota123(r.nota123)
-          notaPorPeriodo[p] = this.nota123ANum(letra)
-          periodosFinales[p] = letra || '-'
-        })
-
-        periodos.forEach(p => {
-          if (!periodosFinales[p]) periodosFinales[p] = '-'
-        })
-
-        const total = periodos.reduce((acc, p) => acc + ((notaPorPeriodo[p] || 0) * (PESOS_INEM[p] || 0)), 0)
-
-        const definitiva = total / totalPesos
-        return { definitiva, nota123Final: this.numANota123(definitiva), periodosFinales }
-      }
-
-      const notaPorPeriodo = { 1: 0, 2: 0, 3: 0 }
+      const notaPorPeriodo = {}
       const periodosFinales = {}
 
       registros.forEach(r => {
@@ -449,65 +420,27 @@ export default {
         if (periodosFinales[p] === undefined) periodosFinales[p] = 0
       })
 
-      const total = periodos.reduce((acc, p) => acc + ((notaPorPeriodo[p] || 0) * (PESOS_INEM[p] || 0)), 0)
+      const total = periodos.reduce((acc, p) => acc + ((notaPorPeriodo[p] || 0) * (pesos[p] || 0)), 0)
 
-      return { definitiva: total / totalPesos, nota123Final: '', periodosFinales }
+      return { definitiva: total / totalPesos, periodosFinales }
     },
 
     notaPeriodoAcumuladoDisplay (row, periodo) {
       const v = row && row.periodosFinales ? row.periodosFinales[periodo] : undefined
-      if (this.esCualitativo123) return v || '-'
       const n = Number(v)
       return Number.isFinite(n) ? n.toFixed(1) : '-'
     },
     notaPeriodoAcumuladoClass (row, periodo) {
       const v = row && row.periodosFinales ? row.periodosFinales[periodo] : undefined
-      if (this.esCualitativo123) {
-        return this.conceptoClass(this.nota123AConcepto(String(v || '').toUpperCase()))
-      }
       return this.scoreClass(v, row.tipoAsignatura)
     },
 
-    normalizarNota123 (v) {
-      const l = String(v || '').trim().toUpperCase()
-      return MAP_NOTA123_NUM[l] ? l : ''
-    },
-    nota123ANum (letra) {
-      return MAP_NOTA123_NUM[letra] || 0
-    },
-    numANota123 (n) {
-      const num = Number(n)
-      if (!Number.isFinite(num) || num <= 0) return ''
-      if (num < 2) return 'J'
-      if (num < 3.5) return 'B'
-      if (num < 4.5) return 'A'
-      return 'S'
-    },
-    nota123AConcepto (letra) {
-      if (letra === 'J') return 'BAJO'
-      if (letra === 'B') return 'BASICO'
-      if (letra === 'A') return 'ALTO'
-      if (letra === 'S') return 'SUPERIOR'
-      return '-'
-    },
-    nota123Display (row) {
-      const l = this.normalizarNota123(row.nota123)
-      return l || '-'
-    },
-    nota123Concepto (row) {
-      const l = this.normalizarNota123(row.nota123)
-      return this.nota123AConcepto(l)
-    },
-
-    // ── Formateo de valor numerico ──────────────────────────────────────────
     asScore (v) {
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return '-'
       const n = Number(v)
       return Number.isNaN(n) ? String(v) : n.toFixed(1)
     },
 
-    // ── Clase del badge segun nota y tipo de asignatura ──────────────────────
-    // Usa los rangos de secciones_ie: Academico vs Tecnico
     scoreClass (v, tipoAsig) {
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return 'badge-mid'
       const n = Number(v)
@@ -522,14 +455,12 @@ export default {
         if (n <= maxAlt) return 'badge-blue'
         return 'badge-high'
       }
-      // fallback si config no cargada
       if (n < 3.0) return 'badge-low'
       if (n < 4.0) return 'badge-mid'
       if (n < 4.5) return 'badge-blue'
       return 'badge-high'
     },
 
-    // ── Clase badge por concepto textual ────────────────────────────────────
     conceptoClass (concepto) {
       if (!concepto || concepto === '-') return 'badge-mid'
       const c = String(concepto).toUpperCase().trim()
@@ -537,27 +468,22 @@ export default {
       if (c === 'ALTO') return 'badge-blue'
       if (c === 'BASICO' || c === 'BÁSICO') return 'badge-mid'
       if (c === 'BAJO') return 'badge-low'
-      // Preescolar / comportamiento: Logrado=high, No Logrado=low, Insuficiente=low, Aceptable=mid
       if (c === 'LOGRADO' || c === 'L') return 'badge-high'
       if (c.startsWith('NO LOGRADO') || c === 'NL') return 'badge-low'
       if (c === 'INSUFICIENTE' || c === 'I') return 'badge-low'
       if (c === 'ACEPTABLE' || c === 'A') return 'badge-mid'
       if (c === 'EXCELENTE' || c === 'E') return 'badge-high'
       if (c === 'SOBRESALIENTE') return 'badge-blue'
-      // Preescolar INEM: S=Superado, P=En Proceso, R=Nec. Refuerzo
       if (c === 'SUPERADO') return 'badge-high'
       if (c === 'P' || c === 'EN PROCESO') return 'badge-mid'
       if (c === 'R' || c.startsWith('NEC')) return 'badge-low'
       return 'badge-mid'
     },
 
-    // ── PREESCOLAR ───────────────────────────────────────────────────────────
-    // definitivapree ya contiene el valor correcto: letra si metoValPree=0, numero si no
     preeDisplay (row) {
       const v = row.definitivapree
       if (v === null || v === undefined || v === '' || v === 0 || v === '0') return row.concepto || '-'
       const n = Number(v)
-      // Si es NaN es una letra (p.ej. 'S', 'A', 'B', 'L')
       return Number.isNaN(n) ? String(v) : n.toFixed(1)
     },
     preeClass (row) {
@@ -568,8 +494,6 @@ export default {
       return this.scoreClass(v, 1)
     },
 
-    // ── COMPORTAMIENTO ───────────────────────────────────────────────────────
-    // definitivacompor contiene letra si tipoValComp=1, numero si tipoValComp=0
     tieneCompor (row) {
       const v = row.definitivacompor
       return v !== null && v !== undefined && v !== '' && v !== 0 && v !== '0'
@@ -588,17 +512,15 @@ export default {
       return this.scoreClass(v, 1)
     },
 
-    // ── Carga de configuracion ───────────────────────────────────────────────
     async cargarConfig () {
       try {
         const resp = await axios.get(CONFIG.ROOT_PATH + 'acudientes/config-evaluacion', {
-          params: { idInstitucion: ID_INEM, vigencia: this.vigencia }
+          params: { idInstitucion: ID_RURAL_SUR, vigencia: this.vigencia }
         })
         if (!resp.data.error && resp.data.datos) this.config = resp.data.datos
       } catch (e) { /* no critico */ }
     },
 
-    // ── Carga de notas ───────────────────────────────────────────────────────
     async cargarNotas () {
       const idMatricula = this.$route.params.idMatricula
       if (!idMatricula) { this.cargando = false; return }
@@ -623,7 +545,6 @@ export default {
             recuperacion: r.recuperacion,
             definitivacompor: r.definitivacompor || null,
             definitivapree: r.definitivapree || null,
-            nota123: r.nota123 || '',
             concepto: r.concepto,
             ausJ: Number(r.ausJ) || 0,
             ausS: Number(r.ausS) || 0,
