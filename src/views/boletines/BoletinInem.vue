@@ -10,12 +10,11 @@
 import axios from 'axios'
 import * as CONFIG from '@/assets/config.js'
 
-// Portado de academico/src/views/reportes/boletines/BoletinPeriodoInem.vue
-// Diferencias reales frente al boletín genérico (BoletinAcudiente.vue):
-//  - Modo de 7 columnas de desempeño (muestra los 3 criterios C1/C2/C3 en vez de Evalua/Recup/Defin)
-//  - Grados 1° a 3°: evaluación cualitativa (nota123: J/B/A/S) en vez de nota numerica
-//  - Comportamiento (área orden=99) usa las letras/etiquetas configuradas en secciones_ie (compL1-4/compC1-4)
-//  - Asignaturas de solo-descriptor (orden=98) no llevan nota, solo texto
+// Portado de academico/src/views/reportes/boletines/BoletinPeriodo.vue (version 2026-08, ver reportes.rar)
+// - sin ramas de negocio especiales de un colegio en particular.
+// COL_DESEM=7 activa el modo "criterios" (muestra C1/C2/C3 configurados en vez de Evalua/Recup) -
+// asi se ve el boletin oficial en academico para este colegio segun su codigo DANE.
+// Diferencia real de INEM: grados 1o-3o evaluados de forma cualitativa (nota123 J/B/A/S) en vez de nota numerica.
 const COL_DESEM = 7
 const MAP_NOTA123_CONCEPTO = { J: 1, B: 2, A: 3, S: 4 }
 
@@ -26,7 +25,7 @@ export default {
     idCurso: { type: String, required: true },
     vigencia: { type: [String, Number], required: true },
     periodosVisibles: { type: Array, required: true }, // ej. [1] o [1,2,3,4]
-    estudiante: { type: Object, required: true }, // { estudiante, documento, sede, curso, jornada, grado, ... }
+    estudiante: { type: Object, required: true }, // { estudiante, documento, sede, curso, jornada, ... }
     config: { type: Object, default: () => ({}) }, // fila de secciones_ie
     nombreInstitucion: { type: String, default: '' },
     escudoInstitucion: { type: String, default: '' }
@@ -42,7 +41,8 @@ export default {
       nombreJornada: '',
       directorCurso: '',
       puesto: null,
-      totalEstudiantes: null
+      totalEstudiantes: null,
+      escala: 0
     }
   },
   computed: {
@@ -60,6 +60,10 @@ export default {
     },
     promCompor () {
       return this.config.promCompor != null ? Number(this.config.promCompor) : 1
+    },
+    // Estudiante evaluado de forma conceptual: no se calcula promedio/puesto general
+    esConceptual () {
+      return String(this.estudiante.conceptual || '').trim().toUpperCase() === 'S'
     },
     // Grados 1º-3º de primaria: evaluación cualitativa (nota123 J/B/A/S) - igual criterio que ConsultaNotasInem.vue
     esCualitativo123 () {
@@ -158,10 +162,10 @@ export default {
         const {
           estudiante, documento, area, asignatura, periodo,
           definitiva, recuperacion, definitivacompor, fechaR, inclusion,
-          observaciones, pd, C1, C2, C3, concep, nota123, recomendaciones, totalAJ, totalAS
+          observaciones, pd, C1, C2, C3, concep, conceptual, nota123, recomendaciones, totalAJ, totalAS, totalAJTodos, totalASTodos
         } = nota
         if (!mapa[estudiante]) {
-          mapa[estudiante] = { documento, ausJ: 0, ausS: 0, areas: {} }
+          mapa[estudiante] = { documento, ausJ: 0, ausS: 0, ausJTodos: 0, ausSTodos: 0, areas: {} }
         }
         const est = mapa[estudiante]
         if (!est.areas[area]) est.areas[area] = { asignaturas: {} }
@@ -186,9 +190,12 @@ export default {
             observaciones: null,
             pd: null,
             concep: null,
+            conceptual: null,
             recomendaciones: null,
             ausJ: 0,
-            ausS: 0
+            ausS: 0,
+            ausJTodos: 0,
+            ausSTodos: 0
           }
         }
         const asig = est.areas[area].asignaturas[asignatura]
@@ -206,26 +213,33 @@ export default {
           asig.definitiva = letra
           asig.recuperacion = recuperacion
         } else {
-          asig.periodos[periodo] = recuperacion > definitiva ? recuperacion : definitiva
-          asig.definitivas[periodo] = definitiva
-          asig.recuperaciones[periodo] = recuperacion
-          asig.definitiva = definitiva
-          asig.recuperacion = recuperacion
+          const definitivaNum = Number(definitiva)
+          const recuperacionNum = Number(recuperacion)
+          asig.periodos[periodo] = recuperacionNum > definitivaNum ? recuperacionNum : definitivaNum
+          asig.definitivas[periodo] = definitivaNum
+          asig.recuperaciones[periodo] = recuperacionNum
+          asig.definitiva = definitivaNum
+          asig.recuperacion = recuperacionNum
         }
-        asig.c1[periodo] = C1
-        asig.c2[periodo] = C2
-        asig.c3[periodo] = C3
+        asig.c1[periodo] = Number(C1)
+        asig.c2[periodo] = Number(C2)
+        asig.c3[periodo] = Number(C3)
         asig.fechaR = fechaR
         asig.inclusion = inclusion
         asig.observaciones = observaciones
         asig.pd = pd
         asig.concep = concep
+        asig.conceptual = conceptual
         asig.recomendaciones = recomendaciones
         asig.ausJ += Number(totalAJ) || 0
         asig.ausS += Number(totalAS) || 0
+        asig.ausJTodos += Number(totalAJTodos) || 0
+        asig.ausSTodos += Number(totalASTodos) || 0
 
         est.ausJ += Number(totalAJ) || 0
         est.ausS += Number(totalAS) || 0
+        est.ausJTodos += Number(totalAJTodos) || 0
+        est.ausSTodos += Number(totalASTodos) || 0
       })
       return mapa
     },
@@ -240,7 +254,11 @@ export default {
       if (asigDatos?.concep === 'S') return ''
       const orden = asigDatos?.orden
       const nota = asigDatos?.definitivas?.[periodo]
-      if (orden == 99 && this.tipoValComp == 0) return nota
+      if (orden == 99 && this.tipoValComp == 0) {
+        const idx = this.letrasCompor.findIndex(l => l === nota)
+        this.escala = idx >= 0 ? idx + 2 : 2
+        return nota || ''
+      }
       if (this.esCualitativo123 && orden !== 99) return nota || ''
       const n = Number(nota)
       return Number.isFinite(n) && n > 0 ? n.toFixed(1) : ''
@@ -272,7 +290,7 @@ export default {
       const orden = est.areas?.[area]?.asignaturas?.[asignatura]?.orden
       if (orden === 98) return ''
       if (orden == 99 && this.tipoValComp == 0) return this.definitivaPeriodo(est, area, asignatura, periodo)
-      if (this.esCualitativo123) return this.definitivaPeriodo(est, area, asignatura, periodo)
+      if (this.esCualitativo123 && orden !== 99) return this.definitivaPeriodo(est, area, asignatura, periodo)
       const def = parseFloat(this.definitivaPeriodo(est, area, asignatura, periodo))
       const rec = parseFloat(this.recuperacion(est, area, asignatura, periodo))
       if (isNaN(def) && isNaN(rec)) return ''
@@ -280,6 +298,7 @@ export default {
       return def > 0 ? def.toFixed(1) : def
     },
     promedioAsignatura (est, area, asignatura) {
+      if (this.esConceptual) return ''
       const orden = est.areas?.[area]?.asignaturas?.[asignatura]?.orden
       const asig = est.areas?.[area]?.asignaturas?.[asignatura]
       if (!asig || orden === 98 || asig.concep === 'S') return ''
@@ -289,7 +308,8 @@ export default {
         for (const p in asig.periodos) {
           const nota = asig.periodos[p]
           const idx = this.letrasCompor.findIndex(valor => valor === nota)
-          total += this.umbralesA[idx] || 0
+          if (idx === -1) continue
+          total += Number(this.umbralesA[idx])
           cant++
         }
         const promedioLetras = cant > 0 ? this.redondear(total / cant).toFixed(1) : 0
@@ -307,16 +327,16 @@ export default {
           const nota = Number(asig.periodos[p])
           if (Number.isFinite(nota) && nota > 0) { total += nota; cant++ }
         }
-        return cant > 0 ? this.redondear(total).toFixed(1) : ''
+        return cant > 0 ? this.redondear(total / cant).toFixed(1) : ''
       }
     },
     promedioArea (est, area) {
+      if (this.esConceptual) return ''
       const asigns = Object.keys(est.areas?.[area]?.asignaturas || {})
       if (!asigns.length) return ''
       const orden = est.areas?.[area]?.asignaturas?.[asigns]?.orden
       const asignatura = asigns.reduce((asig) => asig)
       if (orden == 99 && this.tipoValComp == 0) return this.promedioAsignatura(est, area, asignatura)
-      if (this.esCualitativo123) return ''
       const total = asigns.reduce((sum, asig) => {
         if (est.areas?.[area]?.asignaturas?.[asig]?.orden === 98) return sum
         return sum + parseFloat(this.promedioAsignatura(est, area, asig) * est.areas?.[area]?.asignaturas?.[asig]?.porcentaje / 100 || 0)
@@ -326,9 +346,10 @@ export default {
     promedioAreaPorPeriodo (est, area, periodo) {
       const asigns = Object.keys(est.areas?.[area]?.asignaturas || {})
       if (!asigns.length) return ''
+      const concep = est.areas?.[area]?.asignaturas?.[asigns]?.concep
+      if (concep === 'S') return ''
       const orden = est.areas?.[area]?.asignaturas?.[asigns]?.orden
       if (orden == 99 && this.tipoValComp == 0) return est.areas?.[area]?.asignaturas?.[asigns]?.periodos?.[periodo] || ''
-      if (this.esCualitativo123) return ''
       const total = asigns.reduce((sum, asig) => {
         if (est.areas?.[area]?.asignaturas?.[asig]?.orden === 98) return sum
         const nota = est.areas?.[area]?.asignaturas?.[asig]?.periodos?.[periodo] * est.areas?.[area]?.asignaturas?.[asig]?.porcentaje / 100
@@ -340,8 +361,7 @@ export default {
       const asigns = this.promCompor == 1
         ? this.listaAreasAsignaturas.filter(a => a.area === area && a.orden !== 98)
         : this.listaAreasAsignaturas.filter(a => a.area === area && a.orden !== 99 && a.orden !== 98)
-      if (!asigns.length) return ''
-      if (this.esCualitativo123) return ''
+      if (!asigns.length) return '*'
       let total = 0
       asigns.forEach(asigMeta => {
         const { asignatura, porcentaje, orden } = asigMeta
@@ -364,6 +384,8 @@ export default {
     notaPeriodo (est, area, asignatura, periodo) {
       const orden = est.areas?.[area]?.asignaturas?.[asignatura]?.orden
       if (orden === 98) return ''
+      const concep = est.areas?.[area]?.asignaturas?.[asignatura]?.concep
+      if (concep === 'S') return ''
       const valor = est.areas?.[area]?.asignaturas?.[asignatura]?.periodos?.[periodo]
       if (orden == 99 && this.tipoValComp == 0) return valor || ''
       if (this.esCualitativo123) return valor || ''
@@ -375,9 +397,9 @@ export default {
     },
     ausenciasArea (est, area, tipo) {
       const asigns = Object.keys(est.areas?.[area]?.asignaturas || {})
-      return asigns.reduce((sum, asig) => sum + this.ausencias(est, area, asig, tipo), 0)
+      return asigns.reduce((sum, asig) => sum + Number(this.ausencias(est, area, asig, tipo)), 0)
     },
-    // Desempeño textual: cualitativo 1-3 (letra directa), comportamiento (letra configurada) o academico (umbral numerico)
+    // Desempeño textual: comportamiento (letra configurada) o academico (umbral numerico)
     desempeno (nota, area, asignatura) {
       const meta = this.listaAreasAsignaturas.find(a => a.area === area && a.asignatura === asignatura)
       if (meta?.orden === 99) {
@@ -409,9 +431,10 @@ export default {
       const datos = est.areas?.[area]?.asignaturas?.[asignatura]
       const meta = this.listaAreasAsignaturas.find(a => a.area === area && a.asignatura === asignatura)
       if (!datos || !meta) return ''
-      if (orden !== 99 && datos.pd === 'S') {
-        let texto = datos.inclusion || ''
-        if (this.esCualitativo123 && datos.recomendaciones) texto += (texto ? '<br>' : '') + 'Recomendaciones: ' + datos.recomendaciones
+      if (orden !== 99 && (datos.pd === 'S' || datos.concep === 'S')) {
+        let texto = ''
+        if (datos.pd === 'S') texto += datos.inclusion != null ? datos.inclusion : ''
+        if (datos.concep === 'S') texto += (texto ? ' - ' : '') + (datos.conceptual != null ? datos.conceptual : '')
         return texto
       }
       let conceptoValorativo = null
@@ -419,7 +442,13 @@ export default {
         const letra = String(this.notaFinal(est, area, asignatura, periodo) || '').trim().toUpperCase()
         conceptoValorativo = MAP_NOTA123_CONCEPTO[letra] || 999
       } else {
-        const notaFinal = parseFloat(this.notaFinal(est, area, asignatura, periodo))
+        let notaFinal
+        if (orden === 99 && this.tipoValComp == 0) {
+          this.notaFinal(est, area, asignatura, periodo)
+          notaFinal = this.escala
+        } else {
+          notaFinal = parseFloat(this.notaFinal(est, area, asignatura, periodo))
+        }
         if (isNaN(notaFinal)) return ''
         const tipo = meta.idTipoEspecialidad
         const umbralBajo = tipo === 2 ? this.umbralesT[0] : this.umbralesA[0]
@@ -446,6 +475,9 @@ export default {
 
     renderBoletin (data) {
       if (!data) return `<p>No hay datos para ${this.estudiante.estudiante}</p>`
+      const encabezadoDesem = COL_DESEM === 7
+        ? `<th>${this.config.nombreC1 || 'C1'}</th><th>${this.config.nombreC2 || 'C2'}</th><th>${this.config.nombreC3 || 'C3'}</th><th>Defin</th><th>Desemp</th><th>AJ</th><th>AS</th>`
+        : `<th>Evalu</th><th>Recup</th><th>Defin</th><th>Desemp</th><th>AJ</th><th>AS</th>`
       return `
         <div class="boletin">
           <div class="text-center mt-2">
@@ -476,17 +508,14 @@ export default {
                 <th rowspan="2">IH</th>
                 <th colspan="${this.periodosVisibles.length + 1}">Historial</th>
                 <th colspan="${COL_DESEM}">Desempeño en el Periodo</th>
+                <th colspan="2">Ausencias Totales</th>
               </tr>
               <tr>
                 ${this.periodosVisibles.map(p => `<th>P${p}</th>`).join('')}
                 <th>PR</th>
-                <th>${this.config.nombreC1 || 'C1'}</th>
-                <th>${this.config.nombreC2 || 'C2'}</th>
-                <th>${this.config.nombreC3 || 'C3'}</th>
-                <th>Defin</th>
-                <th>Desemp</th>
-                <th>AJ</th>
-                <th>AS</th>
+                ${encabezadoDesem}
+                <th>TAJ</th>
+                <th>TAS</th>
               </tr>
             </thead>
             <tbody>
@@ -505,10 +534,14 @@ export default {
           <table class="tabla-boletin">
             <thead>
               <tr>
-                <th style="width:25%; text-align: left">Promedio: <strong>${this.esCualitativo123 ? '' : this.calcularPromedioGeneral(data)}</strong></th>
-                <th style="width:25%; text-align: left">Puesto: <strong>${this.esCualitativo123 ? '' : ((this.puesto || '-') + ' de ' + (this.totalEstudiantes || '-'))}</strong></th>
-                <th style="width:25%; text-align: left">Aus.Justificadas: <strong>${data.ausJ}</strong></th>
-                <th style="width:25%; text-align: left">Aus.SinJustificar: <strong>${data.ausS}</strong></th>
+                <th colspan="2" style="width:50%; text-align: left">Promedio: <strong>${this.esConceptual || this.esCualitativo123 ? '' : this.calcularPromedioGeneral(data)}</strong></th>
+                <th colspan="2" style="width:50%; text-align: left">Puesto: <strong>${this.esConceptual || this.esCualitativo123 ? '' : ((this.puesto || '-') + ' de ' + (this.totalEstudiantes || '-'))}</strong></th>
+              </tr>
+              <tr>
+                <th style="width:25%; text-align: left">Aus. Justificadas Periodo: <strong>${data.ausJ}</strong></th>
+                <th style="width:25%; text-align: left">Aus. Sin Justificar Periodo: <strong>${data.ausS}</strong></th>
+                <th style="width:25%; text-align: left">Aus. Justificadas Total: <strong>${data.ausJTodos}</strong></th>
+                <th style="width:25%; text-align: left">Aus. Sin Justificar Total: <strong>${data.ausSTodos}</strong></th>
               </tr>
             </thead>
           </table>
@@ -556,14 +589,16 @@ export default {
           const nombreAsignatura = asig.nombreAsignatura
           const notas = this.periodosVisibles.map(p => `<td>${esSoloDescriptor ? '' : this.notaPeriodo(data, area, a, p)}</td>`).join('')
           const prom = this.promedioAsignatura(data, area, a)
-          const c1 = this.criterio1Periodo(data, area, a, this.periodoActual)
-          const c2 = this.criterio2Periodo(data, area, a, this.periodoActual)
-          const c3 = this.criterio3Periodo(data, area, a, this.periodoActual)
           const final = this.notaFinal(data, area, a, this.periodoActual)
           const des = esSoloDescriptor ? '' : this.desempeno(final, area, a)
           const ausJ = this.ausencias(data, area, a, 'ausJ')
           const ausS = this.ausencias(data, area, a, 'ausS')
+          const tAJ = this.ausencias(data, area, a, 'ausJTodos')
+          const tAS = this.ausencias(data, area, a, 'ausSTodos')
           const docente = asig.docente != null ? asig.docente : ''
+          const celdasDesem = COL_DESEM === 7
+            ? `<td>${this.criterio1Periodo(data, area, a, this.periodoActual)}</td><td>${this.criterio2Periodo(data, area, a, this.periodoActual)}</td><td>${this.criterio3Periodo(data, area, a, this.periodoActual)}</td>`
+            : `<td>${esSoloDescriptor ? '' : this.definitivaPeriodo(data, area, a, this.periodoActual)}</td><td>${esSoloDescriptor ? '' : this.recuperacion(data, area, a, this.periodoActual)}</td>`
 
           return `
             <tr>
@@ -571,15 +606,15 @@ export default {
               <td>${esSoloDescriptor ? '' : asig.ih}</td>
               ${notas}
               <td>${prom == null ? '' : prom}</td>
-              <td>${c1}</td>
-              <td>${c2}</td>
-              <td>${c3}</td>
+              ${celdasDesem}
               <td>${final == null ? '' : final}</td>
               <td>${des == null ? '' : des}</td>
-              <td>${esSoloDescriptor ? '' : ausJ}</td>
-              <td>${esSoloDescriptor ? '' : ausS}</td>
+              <td>${esSoloDescriptor ? '' : (ausJ > 0 ? ausJ : '')}</td>
+              <td>${esSoloDescriptor ? '' : (ausS > 0 ? ausS : '')}</td>
+              <td>${esSoloDescriptor ? '' : (tAJ > 0 ? tAJ : '')}</td>
+              <td>${esSoloDescriptor ? '' : (tAS > 0 ? tAS : '')}</td>
             </tr>
-            <tr><td colspan="${this.periodosVisibles.length + 1 + COL_DESEM + 2}" class="descriptor" style="text-align: left">${this.descriptorAsignatura(data, area, a, this.periodoActual, orden)}</td></tr>
+            <tr><td colspan="${this.periodosVisibles.length + 1 + COL_DESEM + 4}" class="descriptor" style="text-align: left">${this.descriptorAsignatura(data, area, a, this.periodoActual, orden)}</td></tr>
           `
         }).join('')
 
@@ -589,7 +624,10 @@ export default {
         const desArea = this.desempeno(finalArea, area, asigns[0]?.asignatura)
         const ausJArea = this.ausenciasArea(data, area, 'ausJ')
         const ausSArea = this.ausenciasArea(data, area, 'ausS')
+        const tAJArea = this.ausenciasArea(data, area, 'ausJTodos')
+        const tASArea = this.ausenciasArea(data, area, 'ausSTodos')
         const ihArea = this.intensidadHorariaArea(data, area)
+        const vaciasDesem = COL_DESEM === 7 ? '<td></td><td></td><td></td>' : '<td></td><td></td>'
 
         return `
           <tr class="fila-area">
@@ -597,11 +635,13 @@ export default {
             <td>${ihArea}</td>
             ${notasArea}
             <td>${promArea}</td>
-            <td></td><td></td><td></td>
+            ${vaciasDesem}
             <td>${finalArea}</td>
             <td>${desArea}</td>
-            <td>${ausJArea}</td>
-            <td>${ausSArea}</td>
+            <td>${ausJArea > 0 ? ausJArea : ''}</td>
+            <td>${ausSArea > 0 ? ausSArea : ''}</td>
+            <td>${tAJArea > 0 ? tAJArea : ''}</td>
+            <td>${tASArea > 0 ? tASArea : ''}</td>
           </tr>
           ${filasAsignaturas}
         `
