@@ -168,8 +168,8 @@ export default {
     estructurarNotasPorEstudiante () {
       const mapa = {}
       this.misNotas.forEach(nota => {
-        const { estudiante, documento, area, asignatura, periodo, pd, inclusion, observaciones, concep, conceptual, totalAJ, totalAS } = nota
-        if (!mapa[estudiante]) mapa[estudiante] = { documento, ausJ: 0, ausS: 0, areas: {} }
+        const { estudiante, documento, area, asignatura, periodo, pd, inclusion, observaciones, concep, conceptual, totalAJ, totalAS, totalAJTodos, totalASTodos } = nota
+        if (!mapa[estudiante]) mapa[estudiante] = { documento, ausJ: 0, ausS: 0, ausJTodos: 0, ausSTodos: 0, areas: {} }
         const est = mapa[estudiante]
         if (!est.areas[area]) est.areas[area] = { asignaturas: {} }
         if (!est.areas[area].asignaturas[asignatura]) {
@@ -185,7 +185,9 @@ export default {
             concep: null,
             conceptual: null,
             ausJ: 0,
-            ausS: 0
+            ausS: 0,
+            ausJTodos: 0,
+            ausSTodos: 0
           }
         }
         const asig = est.areas[area].asignaturas[asignatura]
@@ -198,9 +200,13 @@ export default {
         asig.conceptual = conceptual
         asig.ausJ += Number(totalAJ) || 0
         asig.ausS += Number(totalAS) || 0
+        asig.ausJTodos += Number(totalAJTodos) || 0
+        asig.ausSTodos += Number(totalASTodos) || 0
 
         est.ausJ += Number(totalAJ) || 0
         est.ausS += Number(totalAS) || 0
+        est.ausJTodos += Number(totalAJTodos) || 0
+        est.ausSTodos += Number(totalASTodos) || 0
       })
       return mapa
     },
@@ -306,7 +312,9 @@ export default {
               <th rowspan="2">Área / Asignatura</th>
               <th rowspan="2">IH</th>
               <th colspan="${periodos.length + 1}">Historial</th>
-              <th colspan="4">Desempeño en el Periodo</th>
+              <th colspan="2">Desempeño en el Periodo</th>
+              <th colspan="2">Ausencias Período</th>
+              <th colspan="2">Ausencias Totales</th>
             </tr>
             <tr>
               ${periodos.map(p => `<th>P${p}</th>`).join('')}
@@ -315,6 +323,8 @@ export default {
               <th>Desempeño</th>
               <th>AJ</th>
               <th>AS</th>
+              <th>TAJ</th>
+              <th>TAS</th>
             </tr>
           </thead>
           <tbody>
@@ -324,7 +334,7 @@ export default {
         html += `
           <tr class="fila-area">
             <td style="text-align: left"><strong>${this.nombreDelArea(area)}</strong></td>
-            <td colspan="${periodos.length + 6}"></td>
+            <td colspan="${periodos.length + 8}"></td>
           </tr>
         `
         asigns.forEach(({ asignatura, ih, nombreAsignatura, docente }) => {
@@ -334,6 +344,8 @@ export default {
           const notaActual = asig.periodos?.[this.periodoActual] || ''
           const promedio = esSoloDescriptor ? '' : this.promedioAsignatura(asig)
           const desem = esSoloDescriptor ? { emoji: '', texto: '' } : this.desempeno(notaActual, orden)
+          const tAJ = Number(asig.ausJTodos) || 0
+          const tAS = Number(asig.ausSTodos) || 0
           html += `
             <tr>
               <td style="text-align: left"><strong>${nombreAsignatura}</strong> <br> <i style="font-size: 10px;">${docente}</i></td>
@@ -344,8 +356,10 @@ export default {
               <td>${esSoloDescriptor ? '' : (desem.emoji + ' ' + desem.texto).trim()}</td>
               <td>${esSoloDescriptor ? '' : (asig.ausJ || 0)}</td>
               <td>${esSoloDescriptor ? '' : (asig.ausS || 0)}</td>
+              <td>${esSoloDescriptor ? '' : (tAJ > 0 ? tAJ : '')}</td>
+              <td>${esSoloDescriptor ? '' : (tAS > 0 ? tAS : '')}</td>
             </tr>
-            <tr><td colspan="${periodos.length + 7}" class="descriptor" style="text-align: left">${this.descriptorAsignatura(data, area, asignatura, this.periodoActual, orden)}</td></tr>
+            <tr><td colspan="${periodos.length + 9}" class="descriptor" style="text-align: left">${this.descriptorAsignatura(data, area, asignatura, this.periodoActual, orden)}</td></tr>
           `
         })
       })
@@ -355,8 +369,10 @@ export default {
         <table class="tabla-boletin">
           <thead>
             <tr>
-              <th style="width:50%; text-align: left">Aus.Justificadas: <strong>${data.ausJ}</strong></th>
-              <th style="width:50%; text-align: left">Aus.SinJustificar: <strong>${data.ausS}</strong></th>
+              <th style="width:25%; text-align: left">Aus. Justificadas Periodo: <strong>${data.ausJ}</strong></th>
+              <th style="width:25%; text-align: left">Aus. Sin Justificar Periodo: <strong>${data.ausS}</strong></th>
+              <th style="width:25%; text-align: left">Aus. Justificadas Total: <strong>${data.ausJTodos}</strong></th>
+              <th style="width:25%; text-align: left">Aus. Sin Justificar Total: <strong>${data.ausSTodos}</strong></th>
             </tr>
           </thead>
         </table>

@@ -235,7 +235,7 @@
 import axios from 'axios'
 import * as CONFIG from '@/assets/config.js'
 import BoletinAcudiente from '@/views/boletines/BoletinNormalLeonor'
-import BoletinPree from '@/views/boletines/BoletinPree'
+import BoletinPree from '@/views/boletines/BoletinPreeNormalLeonor'
 
 const ID_NORMAL_LEONOR = '17ee4f30-fc80-11ec-a1d1-1dc2835404e5'
 const OPCION_ACUMULADO = 'ACUMULADO'

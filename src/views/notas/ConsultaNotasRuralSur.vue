@@ -235,7 +235,7 @@
 import axios from 'axios'
 import * as CONFIG from '@/assets/config.js'
 import BoletinAcudiente from '@/views/boletines/BoletinRuralSur'
-import BoletinPree from '@/views/boletines/BoletinPree'
+import BoletinPree from '@/views/boletines/BoletinPreeRuralSur'
 
 const ID_RURAL_SUR = '097b7b10-fcaa-11ec-8267-536b07c743c4'
 const OPCION_ACUMULADO = 'ACUMULADO'
